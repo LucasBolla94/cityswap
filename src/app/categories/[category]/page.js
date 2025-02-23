@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation'; // Alterado de next/router para next/navigation
-import { db } from '../../../firebase'; // Certifique-se de importar a configuração correta
+import { db } from '../../../lib/firebase'; // Certifique-se de importar a configuração correta
 import { collection, query, where, getDocs } from 'firebase/firestore';
 
 const CategoryPage = () => {
