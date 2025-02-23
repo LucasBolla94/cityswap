@@ -24,14 +24,14 @@ const Navbar = ({ isScrolled }) => {
       {/* Div que agora ocupa toda a largura da tela */}
       <div className="w-full px-4 py-4 flex justify-between items-center">
         <Link href="/" className="text-xl font-bold text-gray-800">
-          eBay Clone
+          CitySwap Uk
         </Link>
         <div className="space-x-4">
           <Link href="/listings" className="text-gray-600 hover:text-gray-800">
-            Anúncios
+            Market Feed
           </Link>
           <Link href="/categories" className="text-gray-600 hover:text-gray-800">
-            Categorias
+            Categories
           </Link>
           {loading ? (
             <span className="text-gray-600">Carregando...</span> // Caso esteja carregando

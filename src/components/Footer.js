@@ -6,7 +6,7 @@ const Footer = () => {
   return (
     <footer className="bg-gray-800 text-white py-4">
       <div className="container mx-auto text-center">
-        <p>&copy; {currentYear} eBay Clone. Todos os direitos reservados.</p>
+        <p>&copy; {currentYear} CitySwapUk.com . All rights reserved.</p>
       </div>
     </footer>
   );

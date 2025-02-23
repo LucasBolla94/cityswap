@@ -76,7 +76,7 @@ const HomePage = () => {
           <input
             type="text"
             className="w-full p-3 border rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Buscar por título..."
+            placeholder="Tell what you looking for..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -86,7 +86,7 @@ const HomePage = () => {
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
           >
-            <option value="">Categorias</option>
+            <option value="">Categories</option>
             {categories.map(category => (
               <option key={category.id} value={category.name}>
                 {category.name}
