@@ -4,14 +4,28 @@ import { useEffect } from 'react';
 
 const AdComponent = () => {
   useEffect(() => {
-    try {
+    // Garantir que o Google AdSense esteja carregado
+    const loadAdSense = () => {
       if (window.adsbygoogle) {
-        window.adsbygoogle.push({});
+        try {
+          window.adsbygoogle.push({});
+        } catch (e) {
+          console.error('Erro ao carregar o Google AdSense:', e);
+        }
       }
-    } catch (e) {
-      console.error('Erro ao carregar o Google AdSense:', e);
+    };
+
+    // Verifica se o AdSense foi carregado e aguarda antes de empurrar os anúncios
+    if (typeof window !== "undefined") {
+      // Aguardar o carregamento do script do AdSense
+      const interval = setInterval(() => {
+        if (window.adsbygoogle) {
+          loadAdSense();
+          clearInterval(interval); // Remove o intervalo quando o AdSense estiver carregado
+        }
+      }, 500); // Checa a cada 500ms
     }
-  }, []);
+  }, []); // Executa apenas uma vez, após a renderização inicial
 
   return (
     <div className="w-full flex justify-center my-4">
