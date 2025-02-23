@@ -37,9 +37,9 @@ const AdComponent = () => {
         className="adsbygoogle"
         style={{
           display: 'block',
-          width: '90%',  // Ajusta para largura total disponível
-          minWidth: '300px',  // Largura mínima para garantir que o AdSense tenha espaço
-          height: '70px',
+          width: '100%',  // Ajusta para largura total disponível
+          minWidth: '100px',  // Largura mínima para garantir que o AdSense tenha espaço
+          height: 'auto',
         }}
         data-ad-client="ca-pub-4576510897992414"  // Seu ID do AdSense
         data-ad-slot="3222401032"  // Código do bloco de anúncio
