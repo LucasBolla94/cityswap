@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { auth, db } from './firebase'; // Acesso ao serviço de autenticação e Firestore
-import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider, updateProfile } from 'firebase/auth';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 
 // Hook para autenticação
 export const useAuth = () => {
@@ -103,5 +103,36 @@ export const signInWithGoogle = async () => {
   } catch (error) {
     console.error("Erro ao fazer login com Google:", error);
     throw new Error(error.message); // Garante que a mensagem de erro seja retornada
+  }
+};
+
+// Função para atualizar o perfil do usuário
+export const updateUserProfile = async ({ displayName, email }) => {
+  const user = auth.currentUser;
+
+  if (user) {
+    try {
+      // Atualiza o nome de exibição (displayName)
+      await updateProfile(user, { displayName });
+
+      // Caso queira também atualizar o e-mail, use o método updateEmail
+      if (email && email !== user.email) {
+        await user.updateEmail(email);
+      }
+
+      // Atualiza o Firestore com as novas informações
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        name: displayName,
+        email: email || user.email,
+      });
+      
+      return user;
+    } catch (error) {
+      console.error("Erro ao atualizar perfil:", error);
+      throw new Error(error.message); // Garante que a mensagem de erro seja retornada
+    }
+  } else {
+    throw new Error("Usuário não está autenticado.");
   }
 };
