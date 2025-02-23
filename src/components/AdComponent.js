@@ -18,8 +18,8 @@ const AdComponent = () => {
       <ins
         className="adsbygoogle"
         style={{ display: 'block' }}
-        data-ad-client="ca-pub-XXXXXXXXXXXXXX" // Substitua pelo seu ID do AdSense
-        data-ad-slot="XXXXXXXXXX" // Substitua pelo seu código do anúncio
+        data-ad-client="ca-pub-4576510897992414"  // Seu ID do AdSense
+        data-ad-slot="3222401032"  // Código do bloco de anúncio
         data-ad-format="auto"
         data-full-width-responsive="true"
       ></ins>

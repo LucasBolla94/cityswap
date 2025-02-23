@@ -1,5 +1,5 @@
 'use client';
-
+import AdComponent from '../components/AdComponent';
 import React, { useEffect, useState } from 'react';
 import { db } from '../lib/firebase'; // Importando o db corretamente
 import { collection, getDocs } from 'firebase/firestore'; // Para acessar os documentos da coleção
@@ -105,6 +105,9 @@ const HomePage = () => {
 
       {/* Banner Principal */}
       <Banner />
+
+      {/* Banner ADS */}
+      <AdComponent />
 
       <div className="container mx-auto px-4 py-8 flex-grow">
         <div className="flex flex-col lg:flex-row gap-8">
