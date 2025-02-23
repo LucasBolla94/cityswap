@@ -3,7 +3,7 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// Use as variáveis de ambiente do arquivo .env.local
+// Certifique-se de ter as variáveis de ambiente configuradas corretamente no seu arquivo .env.local
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -18,6 +18,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Exporte os serviços do Firebase que você irá usar
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+export const auth = getAuth(app);          // Autenticação
+export const db = getFirestore(app);       // Firestore
+export const storage = getStorage(app);    // Storage
