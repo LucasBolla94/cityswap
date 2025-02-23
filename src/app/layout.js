@@ -22,11 +22,8 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <head>
         {/* Adicionando o script do Google Ads */}
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4576510897992414"
-          crossorigin="anonymous"
-        ></script>
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4576510897992414"
+     crossorigin="anonymous"></script>
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Navbar /> {/* Barra de navegação aqui */}
