@@ -1,6 +1,7 @@
-// Importações necessárias
+'use client';
+
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation'; // Alterado de next/router para next/navigation
 import { db } from '../../../firebase'; // Certifique-se de importar a configuração correta
 import { collection, query, where, getDocs } from 'firebase/firestore';
 

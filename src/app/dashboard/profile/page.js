@@ -1,9 +1,9 @@
-// /src/app/dashboard/profile/page.js
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../lib/auth'; // Hook de autenticação
 import { updateUserProfile } from '../../../lib/auth'; // Função para atualizar o perfil
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // Alterado de next/router para next/navigation
 
 const ProfilePage = () => {
   const { user, loading } = useAuth();
