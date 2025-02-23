@@ -21,7 +21,8 @@ const Navbar = ({ isScrolled }) => {
       className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 ${isScrolled ? "bg-transparent" : "bg-white shadow-md"}`}
       style={{ opacity: isScrolled ? 0.7 : 1 }}
     >
-      <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+      {/* Div que agora ocupa toda a largura da tela */}
+      <div className="w-full px-4 py-4 flex justify-between items-center">
         <Link href="/" className="text-xl font-bold text-gray-800">
           eBay Clone
         </Link>

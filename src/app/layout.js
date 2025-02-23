@@ -20,10 +20,19 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <head />
+      <head>
+        {/* Adicionando o script do Google Ads */}
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4576510897992414"
+          crossorigin="anonymous"
+        ></script>
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Navbar /> {/* Barra de navegação aqui */}
-        {children}
+        <div className="pt-16"> {/* Ajuste o valor de pt-16 conforme a altura da sua barra de navegação */}
+          {children}
+        </div>
       </body>
     </html>
   );

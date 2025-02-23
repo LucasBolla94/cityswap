@@ -18,7 +18,7 @@ export const getUserListings = async (userId) => {
     return listings;
   } catch (error) {
     console.error('Erro ao buscar anúncios:', error);
-    return [];
+    return []; // Retorna um array vazio em caso de erro
   }
 };
 

@@ -18,6 +18,7 @@ body {
   color: var(--foreground);
   background: var(--background);
   font-family: 'Arial', Helvetica, sans-serif;
+  @apply text-base sm:text-sm lg:text-lg; /* Definindo tamanhos de texto responsivos */
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -33,30 +34,26 @@ a:hover {
   text-decoration: underline;
 }
 
-/* Responsividade */
+/* Responsividade do Container */
+.container {
+  @apply mx-auto px-4 sm:px-6 md:px-8 max-w-screen-xl; /* Padronizando o padding e max-width */
+}
+
+/* Responsividade de largura para dispositivos */
 @media (max-width: 640px) {
-  body {
-    font-size: 0.875rem; /* Para melhorar a legibilidade em dispositivos móveis */
-  }
   .container {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-  .text-lg {
-    font-size: 1.125rem; /* Tamanho de texto mais acessível para mobile */
+    @apply px-4; /* Padding para dispositivos pequenos */
   }
 }
 
 @media (min-width: 640px) {
   .container {
-    max-width: 640px;
-    margin-left: auto;
-    margin-right: auto;
+    @apply max-w-screen-sm; /* Para dispositivos médios */
   }
 }
 
 @media (min-width: 1024px) {
   .container {
-    max-width: 1024px;
+    @apply max-w-screen-md; /* Para dispositivos maiores */
   }
 }
