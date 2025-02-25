@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react';
 import { auth, db } from './firebase'; // Acesso ao serviço de autenticação e Firestore
-import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, signInWithPopup, GoogleAuthProvider, updateProfile } from 'firebase/auth';
+import {
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  signInWithPopup,
+  GoogleAuthProvider,
+  updateProfile
+} from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 
 // Hook para autenticação
@@ -22,7 +30,7 @@ export const useAuth = () => {
 };
 
 // Função de cadastro (sign up) com email e senha
-export const signUp = async (name, email, password) => {
+export const signUp = async ({ firstName, lastName, email, password, accountType, businessName, businessEmail, businessRegistered }) => {
   // Verifica se o email é válido
   if (!email || !email.includes('@') || !email.includes('.')) {
     throw new Error('Email inválido');
@@ -37,13 +45,34 @@ export const signUp = async (name, email, password) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Registrar o usuário na coleção "users" no Firestore com o nome
-    await setDoc(doc(db, 'users', user.uid), {
-      name: name,  // Salva o nome do usuário
+    // Define se a conta é Business ou Private
+    const isBusinessAccount = accountType === "business";
+
+    // Criando objeto com os dados do usuário
+    const userData = {
       email: user.email,
       uid: user.uid,
       createdAt: new Date(),
-    });
+      balance: 0, // Saldo inicial
+      business_account: isBusinessAccount, // Define se é business ou private
+    };
+
+    // Adiciona dados específicos para Private ou Business
+    if (isBusinessAccount) {
+      userData.businessName = businessName;
+      userData.businessEmail = businessEmail;
+      userData.businessRegistered = businessRegistered;
+    } else {
+      userData.firstName = firstName;
+      userData.lastName = lastName;
+    }
+
+    // Registrar o usuário na coleção apropriada do Firestore
+    if (isBusinessAccount) {
+      await setDoc(doc(db, 'business-users', user.uid), userData);
+    } else {
+      await setDoc(doc(db, 'users', user.uid), userData);
+    }
 
     return user;
   } catch (error) {
@@ -96,6 +125,7 @@ export const signInWithGoogle = async () => {
         email: user.email,
         uid: user.uid,
         createdAt: new Date(),
+        business_account: false, // Padrão para Google Sign-In
       });
     }
 
@@ -126,7 +156,7 @@ export const updateUserProfile = async ({ displayName, email }) => {
         name: displayName,
         email: email || user.email,
       });
-      
+
       return user;
     } catch (error) {
       console.error("Erro ao atualizar perfil:", error);

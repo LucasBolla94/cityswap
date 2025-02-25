@@ -1,155 +1,218 @@
-"use client";  // Importante para marcar esse componente como cliente
+"use client";
 
 import React, { useState } from "react";
-import { signUp } from "../../../lib/auth"; // Importa a função de signUp do Firebase
+import { signUp } from "../../../lib/auth";
 import { useRouter } from "next/navigation";
-import { signInWithGoogle } from "../../../lib/auth"; // Função para login com Google
 
 const RegisterPage = () => {
-  const [name, setName] = useState("");  // Estado para o nome
+  const [accountType, setAccountType] = useState("private");
+
+  // Campos para conta Private
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");  // Estado para confirmar a senha
-  const [agreeTerms, setAgreeTerms] = useState(false);  // Estado para o checkbox "Agree Terms"
+
+  // Campos para conta Business
+  const [businessName, setBusinessName] = useState("");
+  const [businessEmail, setBusinessEmail] = useState("");
+  const [businessRegistered, setBusinessRegistered] = useState("");
+
   const [error, setError] = useState("");
   const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Verifica se as senhas coincidem
-    if (password !== confirmPassword) {
-      setError("As senhas não coincidem.");
-      return;
-    }
-
-    // Verifica se o usuário aceitou os termos e condições
-    if (!agreeTerms) {
-      setError("Você precisa aceitar os termos e condições.");
-      return;
-    }
-
     try {
-      // Chama a função de signUp e passa o nome, email e senha
-      await signUp(name, email, password);
-      router.push("/dashboard"); // Redireciona para o painel após registro
+      if (accountType === "private") {
+        await signUp({
+          firstName,
+          lastName,
+          email,
+          password,
+          accountType,
+        });
+      } else {
+        await signUp({
+          businessName,
+          businessEmail,
+          password,
+          accountType,
+          businessRegistered,
+          email: businessEmail, // Utiliza o email do negócio para validação e cadastro
+        });
+      }
+      router.push("/dashboard");
     } catch (err) {
+      console.error(err);
       setError("Erro ao criar a conta. Tente novamente.");
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      await signInWithGoogle(); // Chama a função de login com Google
-      router.push("/dashboard"); // Redireciona para o painel após login
-    } catch (err) {
-      setError("Erro ao fazer login com Google. Tente novamente.");
     }
   };
 
   return (
     <div className="max-w-md mx-auto mt-10 p-6 bg-white shadow-lg rounded-lg">
       <h2 className="text-2xl font-semibold mb-6 text-center">Registrar</h2>
+
+      {/* Switch personalizado para alternar entre Private e Business */}
+      <div className="relative w-full mb-6">
+        <div
+          className="w-full flex bg-gray-300 rounded-full p-1 cursor-pointer relative"
+          onClick={() => setAccountType(accountType === "private" ? "business" : "private")}
+        >
+          {/* Botão deslizante */}
+          <div
+            className={`absolute top-0 left-0 h-full w-1/2 bg-blue-500 rounded-full transition-transform duration-300 ${
+              accountType === "business" ? "translate-x-full" : "translate-x-0"
+            }`}
+          ></div>
+
+          {/* Texto dentro do botão */}
+          <div className="relative w-1/2 text-center text-sm font-medium z-10 text-white">
+            Private
+          </div>
+          <div className="relative w-1/2 text-center text-sm font-medium z-10 text-white">
+            Business
+          </div>
+        </div>
+      </div>
+
       {error && <p className="text-red-500 text-sm">{error}</p>}
+
       <form onSubmit={handleSubmit}>
-        {/* Campo para o nome */}
-        <div className="mb-4">
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-            Nome
-          </label>
-          <input
-            type="text"
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full p-2 mt-1 border rounded-md focus:ring-2 focus:ring-blue-500"
-            required
-          />
-        </div>
-
-        {/* Campo para o email */}
-        <div className="mb-4">
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-            Email
-          </label>
-          <input
-            type="email"
-            id="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-2 mt-1 border rounded-md focus:ring-2 focus:ring-blue-500"
-            required
-          />
-        </div>
-
-        {/* Campo para a senha */}
-        <div className="mb-6">
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-            Senha
-          </label>
-          <input
-            type="password"
-            id="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 mt-1 border rounded-md focus:ring-2 focus:ring-blue-500"
-            required
-          />
-        </div>
-
-        {/* Campo para confirmar a senha */}
-        <div className="mb-6">
-          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-            Repetir Senha
-          </label>
-          <input
-            type="password"
-            id="confirmPassword"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full p-2 mt-1 border rounded-md focus:ring-2 focus:ring-blue-500"
-            required
-          />
-        </div>
-
-        {/* Checkbox para aceitar os termos e condições */}
-        <div className="mb-6 flex items-center">
-          <input
-            type="checkbox"
-            id="agreeTerms"
-            checked={agreeTerms}
-            onChange={(e) => setAgreeTerms(e.target.checked)}
-            className="mr-2"
-          />
-          <label htmlFor="agreeTerms" className="text-sm text-gray-600">
-            Eu aceito os <a href="/terms" className="text-blue-500 hover:underline">termos e condições</a>
-          </label>
-        </div>
+        {accountType === "private" ? (
+          <>
+            {/* Campos para conta Private */}
+            <div className="mb-4">
+              <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                Nome
+              </label>
+              <input
+                type="text"
+                id="firstName"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="w-full p-2 mt-1 border rounded-md focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                Sobrenome
+              </label>
+              <input
+                type="text"
+                id="lastName"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="w-full p-2 mt-1 border rounded-md focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email
+              </label>
+              <input
+                type="email"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full p-2 mt-1 border rounded-md focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Senha
+              </label>
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-2 mt-1 border rounded-md focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <p className="text-xs text-gray-600 mb-4">
+              We'll regularly send you emails with offers regarding our services. You can unsubscribe at any time.
+              <br />
+              By selecting Create personal account, you agree to our User Agreement and acknowledge reading our User Privacy Notice.
+            </p>
+          </>
+        ) : (
+          <>
+            {/* Campos para conta Business */}
+            <div className="mb-4">
+              <label htmlFor="businessName" className="block text-sm font-medium text-gray-700">
+                Business Name
+              </label>
+              <input
+                type="text"
+                id="businessName"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                className="w-full p-2 mt-1 border rounded-md focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="businessEmail" className="block text-sm font-medium text-gray-700">
+                Business Email
+              </label>
+              <input
+                type="email"
+                id="businessEmail"
+                value={businessEmail}
+                onChange={(e) => setBusinessEmail(e.target.value)}
+                className="w-full p-2 mt-1 border rounded-md focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            {/* Campo de senha para conta Business */}
+            <div className="mb-4">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Senha
+              </label>
+              <input
+                type="password"
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-2 mt-1 border rounded-md focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="businessRegistered" className="block text-sm font-medium text-gray-700">
+                Business Registered Where
+              </label>
+              <input
+                type="text"
+                id="businessRegistered"
+                value={businessRegistered}
+                onChange={(e) => setBusinessRegistered(e.target.value)}
+                className="w-full p-2 mt-1 border rounded-md focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <p className="text-xs text-gray-600 mb-4">
+              If your business isn't registered, select your country of residence.
+              <br />
+              We'll regularly send you emails with offers regarding our services. You can unsubscribe at any time.
+              <br />
+              By selecting Create business account, you agree to our User Agreement and acknowledge reading our User Privacy Notice.
+            </p>
+          </>
+        )}
 
         <button
           type="submit"
           className="w-full p-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
         >
-          Registrar
+          {accountType === "private" ? "Create personal account" : "Create business account"}
         </button>
       </form>
-
-      {/* Botão para registrar com o Google */}
-      <div className="mt-4 space-y-2">
-        <button
-          onClick={handleGoogleLogin}
-          className="w-full p-2 bg-red-500 text-white rounded-md hover:bg-red-600"
-        >
-          Registrar com Google
-        </button>
-      </div>
-
-      <p className="mt-4 text-sm text-center">
-        Já tem uma conta?{" "}
-        <a href="/auth/login" className="text-blue-500 hover:underline">
-          Faça login
-        </a>
-      </p>
     </div>
   );
 };

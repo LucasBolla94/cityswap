@@ -48,7 +48,7 @@ const Navbar = ({ isScrolled }) => {
               </button>
             </>
           ) : (
-            <Link href="/auth/login" className="text-gray-600 hover:text-gray-800">
+            <Link href="/auth/" className="text-gray-600 hover:text-gray-800">
               Login
             </Link>
           )}

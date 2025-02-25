@@ -1,10 +1,10 @@
-// /src/app/auth/login/page.js
-
-"use client";  // Importante para marcar esse componente como cliente
+"use client";
 
 import React, { useState } from "react";
-import { login } from "../../../lib/auth"; // Importa a função de login do Firebase
+import { login } from "../../../lib/auth";
 import { useRouter } from "next/navigation";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../../../lib/firebase";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -15,9 +15,22 @@ const LoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await login(email, password); // Chama a função de login
-      router.push("/dashboard"); // Redireciona para o painel após login
+      // Realiza o login e obtém o usuário autenticado
+      const user = await login(email, password);
+
+      // Verifica se o usuário existe na coleção "business-users"
+      const businessDocRef = doc(db, "business-users", user.uid);
+      const businessDocSnap = await getDoc(businessDocRef);
+
+      if (businessDocSnap.exists()) {
+        // Se existir, o usuário é um Business e será redirecionado para a dashboard Business
+        router.push("/dashbusiness");
+      } else {
+        // Caso contrário, é um usuário Private e vai para a dashboard padrão
+        router.push("/dashboard");
+      }
     } catch (err) {
+      console.error(err);
       setError("Erro ao fazer login. Tente novamente.");
     }
   };
