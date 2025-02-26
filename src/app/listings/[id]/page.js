@@ -1,13 +1,14 @@
 'use client';
-
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
 import { useParams } from 'next/navigation';
 
 const ListingDetailPage = () => {
   const { id } = useParams();
   const [listing, setListing] = useState(null);
+  const [seller, setSeller] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -18,15 +19,27 @@ const ListingDetailPage = () => {
 
     const fetchListing = async () => {
       try {
-        const docRef = doc(db, 'ads', id);
-        const docSnap = await getDoc(docRef);
+        const categoriesSnapshot = await getDocs(collection(db, 'categories'));
+        const categoriesList = categoriesSnapshot.docs.map(doc => doc.data());
+        const collectionNames = categoriesList.map(cat => cat.db).filter(Boolean);
 
-        if (docSnap.exists()) {
-          setListing(docSnap.data());
+        let foundListing = null;
+        for (const collName of collectionNames) {
+          const docRef = doc(db, collName, id);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            foundListing = { id: docSnap.id, ...docSnap.data() };
+            break;
+          }
+        }
+
+        if (foundListing) {
+          setListing(foundListing);
         } else {
           setError('Anúncio não encontrado.');
         }
-      } catch (error) {
+      } catch (err) {
+        console.error(err);
         setError('Erro ao carregar o anúncio.');
       } finally {
         setLoading(false);
@@ -36,23 +49,46 @@ const ListingDetailPage = () => {
     fetchListing();
   }, [id]);
 
+  useEffect(() => {
+    if (!listing || !listing.userId) return;
+
+    const fetchSeller = async () => {
+      try {
+        let sellerRef = doc(db, 'users', listing.userId);
+        let sellerSnap = await getDoc(sellerRef);
+        if (!sellerSnap.exists()) {
+          sellerRef = doc(db, 'business-users', listing.userId);
+          sellerSnap = await getDoc(sellerRef);
+        }
+        if (sellerSnap.exists()) {
+          setSeller(sellerSnap.data());
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchSeller();
+  }, [listing]);
+
   const handleNextImage = () => {
-    if (listing.imageUrls && listing.imageUrls.length > 0) {
-      setCurrentImageIndex((prevIndex) =>
+    if (listing?.imageUrls && listing.imageUrls.length > 0) {
+      setCurrentImageIndex(prevIndex =>
         prevIndex === listing.imageUrls.length - 1 ? 0 : prevIndex + 1
       );
     }
   };
 
   const handlePrevImage = () => {
-    if (listing.imageUrls && listing.imageUrls.length > 0) {
-      setCurrentImageIndex((prevIndex) =>
+    if (listing?.imageUrls && listing.imageUrls.length > 0) {
+      setCurrentImageIndex(prevIndex =>
         prevIndex === 0 ? listing.imageUrls.length - 1 : prevIndex - 1
       );
     }
   };
 
-  const handleImageClick = () => {
+  const handleImageClick = (idx = currentImageIndex) => {
+    setCurrentImageIndex(idx);
     setIsImageModalOpen(true);
   };
 
@@ -60,100 +96,160 @@ const ListingDetailPage = () => {
     setIsImageModalOpen(false);
   };
 
+  if (loading) {
+    return (
+      <div className="w-screen px-4 py-8">
+        <p className="text-center text-xl text-gray-500">
+          Carregando detalhes do anúncio...
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-screen px-4 py-8">
+        <p className="text-center text-xl text-red-600">{error}</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-gray-100 py-8">
-      <div className="container mx-auto px-4">
-        {loading ? (
-          <p className="text-center">Carregando detalhes do anúncio...</p>
-        ) : error ? (
-          <p className="text-center text-red-600">{error}</p>
-        ) : listing ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-8 rounded-lg shadow-xl max-w-6xl mx-auto">
-            {/* Detalhes do Anúncio */}
-            <div>
-              {/* Galeria de Imagens */}
-              <div className="relative mb-6">
+    <div className="bg-gray-100 py-8 overflow-x-hidden">
+      <div className="px-4 md:px-8 py-8 max-h-screen overflow-auto">
+        {listing ? (
+          <div className="flex flex-col md:flex-row gap-8">
+            {/* Lado Esquerdo: Foto */}
+            <div className="relative md:w-7/12 w-full">
+              {/* Versão Desktop: exibe a imagem com botões de navegação */}
+              <div className="hidden md:block">
                 {listing.imageUrls && listing.imageUrls.length > 0 ? (
                   <img
                     src={listing.imageUrls[currentImageIndex]}
                     alt={`Imagem ${currentImageIndex + 1}`}
-                    className="w-full h-80 object-cover rounded-md shadow-lg mb-6 cursor-pointer"
+                    className="w-full object-cover rounded-md shadow-lg cursor-pointer"
                     onClick={handleImageClick}
+                    style={{ maxHeight: '550px' }}
                   />
                 ) : (
                   <img
-                    src="https://via.placeholder.com/600x400"
+                    src="https://via.placeholder.com/600x300"
                     alt="Imagem do produto"
-                    className="w-full h-80 object-cover rounded-md shadow-lg mb-6 cursor-pointer"
+                    className="w-full object-cover rounded-md shadow-lg cursor-pointer"
                     onClick={handleImageClick}
+                    style={{ minHeight: '300px' }}
                   />
                 )}
-
-                {/* Botões de navegação das imagens */}
                 <button
                   onClick={handlePrevImage}
-                  className="absolute top-1/2 left-4 transform -translate-y-1/2 bg-gray-800 text-white p-3 rounded-full shadow-md hover:bg-gray-700"
+                  className="absolute top-1/2 left-4 transform -translate-y-1/2 bg-white bg-opacity-80 text-black w-10 h-10 rounded-full shadow-md hover:bg-gray-200"
                 >
-                  &#8592;
+                  &#60;
                 </button>
                 <button
                   onClick={handleNextImage}
-                  className="absolute top-1/2 right-4 transform -translate-y-1/2 bg-gray-800 text-white p-3 rounded-full shadow-md hover:bg-gray-700"
+                  className="absolute top-1/2 right-4 transform -translate-y-1/2 bg-white bg-opacity-80 text-black w-10 h-10 rounded-full shadow-md hover:bg-gray-200"
                 >
-                  &#8594;
+                  &#62;
                 </button>
               </div>
-
-              {/* Título e Preço */}
-              <div className="mb-6">
-                <h1 className="text-3xl font-bold text-gray-800 mb-2">{listing.title}</h1>
-                <p className="text-xl font-semibold text-green-500">{listing.price ? `$${listing.price}` : 'Preço não disponível'}</p>
-              </div>
-
-              {/* Descrição */}
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-800">Descrição:</h3>
-                <p className="text-lg text-gray-600 mt-2">{listing.description}</p>
-              </div>
-
-              {/* Categoria */}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-800">Categoria:</h3>
-                <p className="text-gray-600">{listing.category}</p>
-              </div>
-
-              {/* Data de Criação */}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-800">Publicado em:</h3>
-                <p className="text-gray-600">{new Date(listing.createdAt.seconds * 1000).toLocaleDateString()}</p>
+              {/* Versão Mobile: exibe uma foto por vez com scroll horizontal */}
+              <div className="block md:hidden overflow-x-auto snap-x snap-mandatory flex">
+                {listing.imageUrls && listing.imageUrls.length > 0 ? (
+                  listing.imageUrls.map((url, idx) => (
+                    <div key={idx} className="flex-shrink-0 w-full snap-center">
+                      <img
+                        src={url}
+                        alt={`Imagem ${idx + 1}`}
+                        className="w-full object-cover rounded-md shadow-lg cursor-pointer"
+                        style={{ maxHeight: '350px' }}
+                        onClick={() => handleImageClick(idx)}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex-shrink-0 w-full snap-center">
+                    <img
+                      src="https://via.placeholder.com/600x300"
+                      alt="Imagem do produto"
+                      className="w-full object-cover rounded-md shadow-lg cursor-pointer"
+                      style={{ minHeight: '300px' }}
+                      onClick={handleImageClick}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Informações do Vendedor */}
-            <div className="bg-gray-50 p-6 rounded-lg shadow-md">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Informações do Vendedor</h3>
-              <div className="flex flex-col space-y-4">
-                <p className="text-gray-700"><strong>Nome:</strong> {listing.sellerName}</p>
-                <p className="text-gray-700"><strong>Avaliação:</strong> {listing.sellerRating}</p>
-                <p className="text-gray-700"><strong>Localização:</strong> {listing.sellerLocation}</p>
-                <p className="text-gray-700"><strong>Contatos:</strong> {listing.sellerContact}</p>
+            {/* Lado Direito: Detalhes */}
+            <div className="flex flex-col justify-between md:w-5/12 w-full">
+              <div>
+                <div className="flex flex-col md:flex-row md:items-baseline gap-2">
+                  <h1 className="text-3xl font-bold text-gray-800">
+                    {listing.title}
+                  </h1>
+                  {listing.subtitle && (
+                    <p className="text-lg text-gray-600 opacity-60">
+                      {listing.subtitle}
+                    </p>
+                  )}
+                </div>
+                <hr className="my-4 border-gray-300" />
+                <div className="mb-4">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                    Especifications:
+                  </h3>
+                  <p className="text-lg text-gray-600 mb-4">
+                    {listing.specifications || 'N/A'}
+                  </p>
+                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                    Description:
+                  </h3>
+                  <p className="text-lg text-gray-600">{listing.description}</p>
+                </div>
+                <hr className="my-4 border-gray-300" />
+                <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
+                  <div className="w-16 h-16 rounded-full overflow-hidden">
+                    <img
+                      src={
+                        seller && seller.photo
+                          ? seller.photo
+                          : 'https://via.placeholder.com/64'
+                      }
+                      alt="Vendor"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex flex-col">
+                    <p className="text-md text-gray-700">
+                      <strong>Vendedor:</strong> {seller ? seller.name : 'Não disponível'}
+                    </p>
+                    <p className="text-md text-gray-700">
+                      <strong>Nível:</strong> {seller ? seller.nivel : 'Não disponível'}
+                    </p>
+                    {seller && seller.store && (
+                      <p className="text-md text-gray-700">
+                        <strong>Store:</strong> {seller.store}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <hr className="my-4 border-gray-300" />
               </div>
-              <button className="mt-4 w-full py-3 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600 transition-all shadow-md">
-                Enviar Mensagem
-              </button>
-              <button className="mt-4 w-full py-3 bg-green-500 text-white font-semibold rounded-md hover:bg-green-600 transition-all shadow-md">
-                Details
-              </button>
-            </div>
-
-            {/* Botão de Buy */}
-            <div className="w-full mt-4">
-              <button
-                className="w-full py-3 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600 transition-all shadow-md"
-                onClick={() => alert('Processando a compra')}
-              >
-                Buy
-              </button>
+              <div className="flex gap-4 mt-8">
+                <button
+                  className="w-full py-3 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600 transition-all shadow-md"
+                  onClick={() => alert('Processando a compra')}
+                >
+                  Buy
+                </button>
+                <button
+                  className="w-full py-3 bg-gray-300 text-black font-semibold rounded-md hover:bg-gray-400 transition-all shadow-md"
+                  onClick={() => alert('Anúncio salvo')}
+                >
+                  Save
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -161,26 +257,25 @@ const ListingDetailPage = () => {
         )}
       </div>
 
-      {/* Modal de Imagem em Tamanho Real */}
       {isImageModalOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
           onClick={handleCloseModal}
         >
           <div
-            className="bg-white p-4 rounded-lg max-w-2xl max-h-full overflow-auto"
-            onClick={(e) => e.stopPropagation()} // Evita que o modal feche ao clicar na imagem
+            className="w-screen h-screen flex items-center justify-center bg-black"
+            onClick={(e) => e.stopPropagation()}
           >
             <img
               src={listing.imageUrls[currentImageIndex]}
               alt={`Imagem em tamanho real ${currentImageIndex + 1}`}
-              className="w-full h-auto object-contain"
+              className="max-w-full max-h-full object-contain"
             />
             <button
               onClick={handleCloseModal}
-              className="absolute top-2 right-2 text-white bg-red-600 p-2 rounded-full hover:bg-red-700"
+              className="absolute top-4 right-4 text-white bg-red-600 p-2 rounded-sm hover:bg-red-700"
             >
-              Fechar
+              X
             </button>
           </div>
         </div>
