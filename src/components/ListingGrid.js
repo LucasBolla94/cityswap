@@ -5,11 +5,11 @@ import Link from 'next/link';
 const ListingGrid = ({ ads }) => {
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex gap-4 overflow-x-auto">
+      <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4">
         {ads.map(ad => (
           <div
             key={ad.id}
-            className="bg-white p-4 rounded-xl shadow-lg hover:shadow-2xl transition-transform cursor-pointer transform hover:scale-105 min-w-[250px] max-w-[250px] h-[300px]"
+            className="bg-white p-4 rounded-xl shadow-lg hover:shadow-2xl transition-transform cursor-pointer transform hover:scale-105 flex-shrink-0 snap-start min-w-[250px] max-w-[250px] h-[300px]"
           >
             <Link href={`/listings/${ad.id}`}>
               {/* Container com a imagem do anúncio */}
