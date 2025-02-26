@@ -25,6 +25,7 @@ const ListingCard = ({ listing }) => (
 
 const ListingsPage = () => {
   const [listings, setListings] = useState([]);
+  const [cities, setCities] = useState([]); // Estado para as cidades
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -44,14 +45,37 @@ const ListingsPage = () => {
     }
   }, []);
 
+  // Função para carregar as cidades da coleção 'ads-city'
+  const fetchCities = useCallback(async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'ads-city'));
+      // Mapeia os documentos para extrair o campo 'name'
+      const citiesList = querySnapshot.docs.map(doc => doc.data().name);
+      setCities(citiesList);
+    } catch (error) {
+      console.error('Erro ao carregar cidades', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchListings();
-  }, [fetchListings]);
+    fetchCities();
+  }, [fetchListings, fetchCities]);
 
   return (
     <div className="min-h-screen bg-gray-100 py-8">
       <div className="container mx-auto px-4">
         <h1 className="text-3xl font-semibold text-gray-800 mb-6 text-center">Anúncios</h1>
+
+        {/* Campo para seleção da cidade */}
+        <div className="flex justify-center mb-6">
+          <select className="p-2 border rounded">
+            <option value="">Selecione uma cidade</option>
+            {cities.map((city, index) => (
+              <option key={index} value={city}>{city}</option>
+            ))}
+          </select>
+        </div>
 
         {loading ? (
           <p className="text-center">Carregando anúncios...</p>

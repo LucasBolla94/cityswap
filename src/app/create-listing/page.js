@@ -12,7 +12,7 @@ const CreateListingPage = () => {
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  // Estados já existentes
+  // Estados iniciais e de controle de etapa
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -25,20 +25,22 @@ const CreateListingPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(true);
 
-  // Novos estados para os campos adicionados
+  // Estados para navegação entre etapas
+  const [step, setStep] = useState('selectCategory'); // "selectCategory" ou "completeForm"
+  const [selectedCategoryDb, setSelectedCategoryDb] = useState('');
+
+  // Removido: Estados para o campo de cidade
+  // const [city, setCity] = useState('');
+  // const [cities, setCities] = useState([]);
+
+  // Outros estados do formulário
   const [specs, setSpecs] = useState('');
   const [condition, setCondition] = useState('');
-  const [priceBid, setPriceBid] = useState(false); // false = preço fixo, true = leilão
+  const [acceptBids, setAcceptBids] = useState(false);
+  const [sellByGrooby, setSellByGrooby] = useState(false);
   const [quantity, setQuantity] = useState('');
-  const [video, setVideo] = useState(null);
-
-  // Estados para opções de frete e pagamento
   const [deliveryOptions, setDeliveryOptions] = useState([]);
   const [selectedDeliveryOption, setSelectedDeliveryOption] = useState('');
-  const [paymentOptions, setPaymentOptions] = useState([]);
-  const [selectedPaymentOption, setSelectedPaymentOption] = useState('');
-  
-  // Estado para política de devolução
   const [returnPolicy, setReturnPolicy] = useState('');
 
   // Buscar categorias do Firestore
@@ -77,57 +79,17 @@ const CreateListingPage = () => {
     fetchDeliveryOptions();
   }, []);
 
-  // Buscar opções de pagamento da coleção 'payment_options'
-  useEffect(() => {
-    const fetchPaymentOptions = async () => {
-      try {
-        const paymentCollection = collection(db, 'payment_options');
-        const snapshot = await getDocs(paymentCollection);
-        const options = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setPaymentOptions(options);
-      } catch (error) {
-        console.error("Erro ao buscar opções de pagamento:", error);
-      }
-    };
-    fetchPaymentOptions();
-  }, []);
-
-  if (loading) return <div>Carregando...</div>;
+  if (loading) return <div className="p-4">Carregando...</div>;
   if (!user) {
     router.push('/auth/login');
     return null;
   }
 
-  // Função para upload de vídeo (similar ao de imagem)
-  const handleVideoUpload = async (e) => {
-    const file = e.target.files[0];
-    const storageRef = ref(storage, `videos/${file.name}`);
-    const uploadTask = uploadBytesResumable(storageRef, file);
-
-    uploadTask.on('state_changed',
-      (snapshot) => {
-        // Opcional: implementar progresso do vídeo, se necessário
-      },
-      (error) => {
-        setError('Erro ao fazer upload do vídeo. Tente novamente.');
-      },
-      async () => {
-        try {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          setVideo(downloadURL);
-        } catch (error) {
-          setError('Erro ao obter o link do vídeo. Tente novamente.');
-        }
-      }
-    );
-  };
-
-  // Função para upload de imagem (modificada para múltiplos arquivos)
+  // Função para upload de imagens (suporta múltiplos arquivos)
   const handleImageUpload = async (e) => {
-    const files = Array.from(e.target.files); // Converte FileList para array
+    const files = Array.from(e.target.files);
     setLoadingImage(true);
 
-    // Itera por cada arquivo e faz o upload
     for (const file of files) {
       const storageRef = ref(storage, `images/${file.name}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
@@ -161,15 +123,31 @@ const CreateListingPage = () => {
     setLoadingImage(false);
   };
 
-  // Função para remover uma imagem
+  // Função para remover imagem
   const handleRemoveImage = (imageUrl) => {
     setImages(images.filter((image) => image !== imageUrl));
   };
 
-  // Função para enviar o formulário
+  // Avançar da etapa de seleção de categoria para o formulário completo
+  const handleCategoryNext = () => {
+    if (!category) {
+      setError('A categoria é obrigatória!');
+      return;
+    }
+    const selectedCat = categories.find(cat => cat.name === category);
+    if (selectedCat && selectedCat.db) {
+      setSelectedCategoryDb(selectedCat.db);
+      setError('');
+      setStep('completeForm');
+    } else {
+      setError('Erro: Propriedade "db" não encontrada para a categoria selecionada.');
+    }
+  };
+
+  // Função para enviar o formulário completo
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (isSubmitting) return;
     if (!title) {
       setError('O título é obrigatório!');
@@ -196,8 +174,7 @@ const CreateListingPage = () => {
     setIsSubmitting(true);
 
     try {
-      // Enviando o anúncio com todos os campos para o Firestore
-      await addDoc(collection(db, 'ads'), {
+      await addDoc(collection(db, selectedCategoryDb), {
         title,
         description,
         price,
@@ -205,12 +182,11 @@ const CreateListingPage = () => {
         imageUrls: images,
         specs,
         condition,
-        price_bid: priceBid,
+        bid: acceptBids,
+        gbyseller: sellByGrooby,
         quantity,
-        video: video || null,
-        delivery: selectedDeliveryOption,
+        ...(sellByGrooby && { delivery: selectedDeliveryOption }),
         return: returnPolicy,
-        payment: selectedPaymentOption,
         userId: user.uid,
         createdAt: new Date(),
       });
@@ -223,18 +199,61 @@ const CreateListingPage = () => {
     }
   };
 
+  // Função para tratar a entrada no campo "Preço"
+  const handlePriceChange = (e) => {
+    const rawDigits = e.target.value.replace(/\D/g, '');
+    const num = parseInt(rawDigits || '0', 10);
+    const formatted = (num / 100).toFixed(2);
+    setPrice(formatted);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       <Navbar />
-      <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md mt-8">
-        <h1 className="text-3xl font-semibold text-gray-800 mb-6">Criar Anúncio</h1>
+      <div className="max-w-4xl w-full mx-auto p-6 bg-white rounded-lg shadow-md mt-8">
+        <h1 className="text-3xl font-semibold text-gray-800 mb-6 text-center">Criar Anúncio</h1>
+        {error && <div className="text-red-600 mb-4 text-center">{error}</div>}
 
-        {error && <div className="text-red-600 mb-4">{error}</div>}
+        {step === 'selectCategory' && (
+          <div className="px-4 sm:px-6">
+            {loadingCategories ? (
+              <p className="text-center">Carregando categorias...</p>
+            ) : (
+              <div className="space-y-6">
+                <div>
+                  <label htmlFor="category" className="block text-lg font-medium text-gray-700">
+                    Categoria
+                  </label>
+                  <select
+                    id="category"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Selecione uma categoria</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.name}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCategoryNext}
+                  className="w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Próximo
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
-        {loadingCategories ? (
-          <p>Carregando categorias...</p>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
+        {step === 'completeForm' && (
+          <form onSubmit={handleSubmit} className="space-y-6 px-4 sm:px-6">
+            {/* Campo "Cidade" removido */}
+
             {/* Título */}
             <div>
               <label htmlFor="title" className="block text-lg font-medium text-gray-700">
@@ -250,27 +269,111 @@ const CreateListingPage = () => {
               />
             </div>
 
-            {/* Categoria */}
+            {/* Campo Preço */}
             <div>
-              <label htmlFor="category" className="block text-lg font-medium text-gray-700">
-                Categoria
+              <label htmlFor="price" className="block text-lg font-medium text-gray-700">
+                Preço
               </label>
-              <select
-                id="category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
+              <input
+                type="text"
+                id="price"
+                value={price}
+                onChange={handlePriceChange}
+                placeholder="£0.00"
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Selecione uma categoria</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.name}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
-            {/* Fotos e Vídeos */}
+            {/* Switch para "Accept Bids" */}
+            <div className="flex items-center">
+              <label htmlFor="acceptBids" className="flex items-center cursor-pointer">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    id="acceptBids"
+                    className="sr-only"
+                    checked={acceptBids}
+                    onChange={() => setAcceptBids(!acceptBids)}
+                  />
+                  <div
+                    className={`w-10 h-4 rounded-full border shadow ${
+                      acceptBids ? 'bg-black' : 'bg-neutral-200'
+                    }`}
+                  ></div>
+                  <div
+                    className={`dot absolute w-6 h-6 bg-white rounded-full shadow -left-1 -top-1 transition-transform ${
+                      acceptBids ? 'transform translate-x-full' : ''
+                    }`}
+                  ></div>
+                </div>
+                <span className="ml-3 text-lg font-medium text-gray-700">Accept Bids</span>
+              </label>
+            </div>
+
+            {/* Switch para "Sell by Grooby" */}
+            <div className="flex items-center">
+              <label htmlFor="sellByGrooby" className="flex items-center cursor-pointer">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    id="sellByGrooby"
+                    className="sr-only"
+                    checked={sellByGrooby}
+                    onChange={() => setSellByGrooby(!sellByGrooby)}
+                  />
+                  <div
+                    className={`w-10 h-4 rounded-full border shadow ${
+                      sellByGrooby ? 'bg-black' : 'bg-neutral-200'
+                    }`}
+                  ></div>
+                  <div
+                    className={`dot absolute w-6 h-6 bg-white rounded-full shadow -left-1 -top-1 transition-transform ${
+                      sellByGrooby ? 'transform translate-x-full' : ''
+                    }`}
+                  ></div>
+                </div>
+                <span className="ml-3 text-lg font-medium text-gray-700">Sell by Grooby</span>
+              </label>
+            </div>
+
+            {/* Opções de Frete */}
+            {sellByGrooby && (
+              <div>
+                <label htmlFor="delivery" className="block text-lg font-medium text-gray-700">
+                  Opções de Frete
+                </label>
+                <select
+                  id="delivery"
+                  value={selectedDeliveryOption}
+                  onChange={(e) => setSelectedDeliveryOption(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Selecione o método de frete</option>
+                  {deliveryOptions.map((option) => (
+                    <option key={option.id} value={option.name}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Description */}
+            <div>
+              <label htmlFor="description" className="block text-lg font-medium text-gray-700">
+                Description
+              </label>
+              <textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Put Description of your product here"
+                rows="3"
+              />
+            </div>
+
+            {/* Fotos */}
             <div>
               <label htmlFor="images" className="block text-lg font-medium text-gray-700">
                 Fotos do Produto (mínimo de 3)
@@ -297,7 +400,6 @@ const CreateListingPage = () => {
                   </label>
                 )}
               </div>
-              {/* Aqui adicionamos o atributo 'multiple' para permitir selecionar várias imagens */}
               <input
                 type="file"
                 id="image"
@@ -308,49 +410,13 @@ const CreateListingPage = () => {
               />
               {loadingImage && (
                 <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-500 h-2 rounded-full"
-                    style={{ width: `${progress}%` }}
-                  />
+                  <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${progress}%` }} />
                 </div>
               )}
               {loadingImage && <p className="mt-2 text-gray-600">Carregando imagem...</p>}
-
-              {/* Vídeo do Produto */}
-              <div className="mt-4">
-                <label htmlFor="video" className="block text-lg font-medium text-gray-700">
-                  Vídeo do Produto (opcional)
-                </label>
-                {video ? (
-                  <div className="relative">
-                    <video src={video} controls className="w-full rounded-md" />
-                    <button
-                      type="button"
-                      onClick={() => setVideo(null)}
-                      className="mt-2 px-3 py-1 bg-red-500 text-white rounded-md"
-                    >
-                      Remover Vídeo
-                    </button>
-                  </div>
-                ) : (
-                  <label
-                    htmlFor="video"
-                    className="w-24 h-24 border-dashed border-2 border-gray-300 flex items-center justify-center cursor-pointer"
-                  >
-                    <span className="text-2xl text-gray-500">+</span>
-                  </label>
-                )}
-                <input
-                  type="file"
-                  id="video"
-                  accept="video/*"
-                  onChange={handleVideoUpload}
-                  className="hidden"
-                />
-              </div>
             </div>
 
-            {/* Especificações do Item */}
+            {/* Especificações, condição, quantidade e política de devolução */}
             <div>
               <label htmlFor="specs" className="block text-lg font-medium text-gray-700">
                 Especificações do Item
@@ -365,7 +431,6 @@ const CreateListingPage = () => {
               />
             </div>
 
-            {/* Condição do Produto */}
             <div>
               <label htmlFor="condition" className="block text-lg font-medium text-gray-700">
                 Condição do Produto
@@ -383,45 +448,6 @@ const CreateListingPage = () => {
               </select>
             </div>
 
-            {/* Preço e Formato de Venda */}
-            <div>
-              <label htmlFor="price" className="block text-lg font-medium text-gray-700">
-                Preço
-              </label>
-              <input
-                type="number"
-                id="price"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Digite o preço do item"
-              />
-            </div>
-            <div>
-              <label className="block text-lg font-medium text-gray-700">Formato de Venda</label>
-              <div className="flex items-center">
-                <input
-                  type="radio"
-                  id="precoFixo"
-                  name="saleFormat"
-                  checked={!priceBid}
-                  onChange={() => setPriceBid(false)}
-                  className="mr-2"
-                />
-                <label htmlFor="precoFixo" className="mr-6">Preço Fixo</label>
-                <input
-                  type="radio"
-                  id="leilao"
-                  name="saleFormat"
-                  checked={priceBid}
-                  onChange={() => setPriceBid(true)}
-                  className="mr-2"
-                />
-                <label htmlFor="leilao">Leilão</label>
-              </div>
-            </div>
-
-            {/* Quantidade Disponível */}
             <div>
               <label htmlFor="quantity" className="block text-lg font-medium text-gray-700">
                 Quantidade Disponível
@@ -436,27 +462,6 @@ const CreateListingPage = () => {
               />
             </div>
 
-            {/* Opções de Frete */}
-            <div>
-              <label htmlFor="delivery" className="block text-lg font-medium text-gray-700">
-                Opções de Frete
-              </label>
-              <select
-                id="delivery"
-                value={selectedDeliveryOption}
-                onChange={(e) => setSelectedDeliveryOption(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Selecione o método de frete</option>
-                {deliveryOptions.map((option) => (
-                  <option key={option.id} value={option.name}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Política de Devolução */}
             <div>
               <label htmlFor="returnPolicy" className="block text-lg font-medium text-gray-700">
                 Política de Devolução
@@ -471,52 +476,17 @@ const CreateListingPage = () => {
               />
             </div>
 
-            {/* Description */}
-            <div>
-              <label htmlFor="description" className="block text-lg font-medium text-gray-700">
-                Description
-              </label>
-              <textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Put Description of your product here"
-                rows="3"
-              />
-            </div>
-
-            {/* Informações de Pagamento */}
-            <div>
-              <label htmlFor="payment" className="block text-lg font-medium text-gray-700">
-                Informações de Pagamento
-              </label>
-              <select
-                id="payment"
-                value={selectedPaymentOption}
-                onChange={(e) => setSelectedPaymentOption(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Selecione a forma de pagamento</option>
-                {paymentOptions.map((option) => (
-                  <option key={option.id} value={option.name}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
               <button
                 type="button"
                 onClick={() => router.push('/dashboard/my-listings')}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
+                className="w-full sm:w-auto px-4 py-2 bg-gray-300 text-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? 'Criando...' : 'Criar Anúncio'}

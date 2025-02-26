@@ -27,12 +27,6 @@ const Navbar = ({ isScrolled }) => {
           CitySwap Uk
         </Link>
         <div className="space-x-4">
-          <Link href="/listings" className="text-gray-600 hover:text-gray-800">
-            Market Feed
-          </Link>
-          <Link href="/categories" className="text-gray-600 hover:text-gray-800">
-            Categories
-          </Link>
           {loading ? (
             <span className="text-gray-600">Carregando...</span> // Caso esteja carregando
           ) : user ? (

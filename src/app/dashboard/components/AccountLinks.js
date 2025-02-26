@@ -80,8 +80,8 @@ const CloseAccount = () => (
 );
 
 const AccountsLinks = () => {
-  // Estado que controla qual opção está ativa
-  const [activeComponent, setActiveComponent] = useState("personalInformation");
+  // Quando activeComponent for null, exibimos o menu; caso contrário, exibimos o conteúdo selecionado.
+  const [activeComponent, setActiveComponent] = useState(null);
 
   // Lista de itens do menu com nome e chave
   const menuItems = [
@@ -98,39 +98,51 @@ const AccountsLinks = () => {
     { name: "Close Account", key: "closeAccount" },
   ];
 
-  return (
-    <div className="flex min-h-screen bg-gray-100">
-      {/* Menu lateral à esquerda */}
-      <aside className="w-1/4 bg-white shadow-lg h-screen p-6">
-        <nav className="space-y-2">
-          {menuItems.map((item) => (
-            <button
-              key={item.key}
-              onClick={() => setActiveComponent(item.key)}
-              className={`block w-full text-left p-3 rounded-lg text-gray-700 font-medium
-                transition duration-300 hover:bg-gray-200 hover:font-semibold
-                ${activeComponent === item.key ? "bg-gray-300 font-bold" : ""}`}
-            >
-              {item.name}
-            </button>
-          ))}
-        </nav>
-      </aside>
+  // Mapeamento de chaves para componentes
+  const componentsMap = {
+    personalInformation: <PersonalInformation />,
+    address: <Address />,
+    payments: <Payments />,
+    feedback: <Feedback />,
+    sellerDashboard: <SellerDashboard />,
+    sellerAccount: <SellerAccount />,
+    subscriptions: <Subscriptions />,
+    permissions: <Permissions />,
+    advertisementPreferences: <AdvertisementPreferences />,
+    communicationPreference: <CommunicationPreference />,
+    closeAccount: <CloseAccount />,
+  };
 
-      {/* Área principal à direita com o conteúdo */}
-      <main className="flex-1 p-6">
-        {activeComponent === "personalInformation" && <PersonalInformation />}
-        {activeComponent === "address" && <Address />}
-        {activeComponent === "payments" && <Payments />}
-        {activeComponent === "feedback" && <Feedback />}
-        {activeComponent === "sellerDashboard" && <SellerDashboard />}
-        {activeComponent === "sellerAccount" && <SellerAccount />}
-        {activeComponent === "subscriptions" && <Subscriptions />}
-        {activeComponent === "permissions" && <Permissions />}
-        {activeComponent === "advertisementPreferences" && <AdvertisementPreferences />}
-        {activeComponent === "communicationPreference" && <CommunicationPreference />}
-        {activeComponent === "closeAccount" && <CloseAccount />}
-      </main>
+  return (
+    <div className="min-h-screen bg-gray-100 p-4">
+      {activeComponent ? (
+        // Conteúdo selecionado ocupa toda a tela com um botão de voltar
+        <div className="max-w-4xl w-full mx-auto bg-white rounded-lg shadow-lg p-6">
+          <button
+            onClick={() => setActiveComponent(null)}
+            className="mb-4 text-blue-500 hover:underline"
+          >
+            &larr; Voltar
+          </button>
+          {componentsMap[activeComponent]}
+        </div>
+      ) : (
+        // Menu de seleção
+        <div className="max-w-4xl w-full mx-auto bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-2xl font-bold mb-6 text-center">Configurações da Conta</h2>
+          <nav className="grid grid-cols-1 gap-4">
+            {menuItems.map((item) => (
+              <button
+                key={item.key}
+                onClick={() => setActiveComponent(item.key)}
+                className="block w-full text-left p-3 rounded-lg text-gray-700 font-medium transition duration-300 hover:bg-gray-200 hover:font-semibold"
+              >
+                {item.name}
+              </button>
+            ))}
+          </nav>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,10 +1,9 @@
 'use client';
-
 import React, { useState } from 'react';
 import ListingGrid from '../../../components/ListingGrid'; // Importa o componente de listagem
 
 const Summary = ({ orders }) => {
-  // Usamos um estado para controlar qual aba está ativa
+  // Estado que controla qual aba está ativa
   const [activeTab, setActiveTab] = useState('All Purchases');
 
   // Definimos as abas que serão exibidas
@@ -25,10 +24,10 @@ const Summary = ({ orders }) => {
   return (
     <div className="p-4">
       {/* Cabeçalho da página */}
-      <h1 className="text-2xl font-bold mb-4">Orders</h1>
+      <h1 className="text-2xl font-bold mb-4 text-center sm:text-left">Orders</h1>
       
       {/* Abas para filtro dos pedidos */}
-      <div className="flex flex-row gap-4 mb-4">
+      <div className="flex flex-wrap gap-4 mb-4 justify-center sm:justify-start">
         {tabs.map(tab => (
           <button
             key={tab}
@@ -49,7 +48,7 @@ const Summary = ({ orders }) => {
         {filteredOrders && filteredOrders.length > 0 ? (
           <ListingGrid ads={filteredOrders} />
         ) : (
-          <p>Nenhum pedido encontrado para a categoria "{activeTab}".</p>
+          <p className="text-center">Nenhum pedido encontrado para a categoria "{activeTab}".</p>
         )}
       </div>
     </div>

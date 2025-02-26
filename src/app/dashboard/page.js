@@ -11,19 +11,24 @@ const Account = ({ user }) => {
 
   return (
     <div className="p-4">
-      {/* Cabeçalho */}
-      <h1 className="text-3xl font-bold mb-6">My Account</h1>
+      {/* Cabeçalho com título e botão "Sell for Free" alinhados */}
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">My Account</h1>
+        <Link href="../create-listing/">
+          <button className="rounded-full border px-4 py-2 mt-4 sm:mt-0 bg-blue-500">
+            Sell for Free
+          </button>
+        </Link>
+      </div>
 
-      {/* Seções alinhadas no canto esquerdo */}
-      <div className="text-sm text-left mb-6">
+      {/* Seções alinhadas - empilhadas em mobile e lado a lado em telas maiores */}
+      <div className="flex flex-col sm:flex-row text-sm text-left mb-6 space-y-2 sm:space-y-0 sm:space-x-4">
         <button onClick={() => setActiveSection('activity')} className="text-blue-500 hover:underline">
           Activity
-        </button> 
-        | 
+        </button>
         <button onClick={() => setActiveSection('messages')} className="text-blue-500 hover:underline">
           Messages
-        </button> 
-        | 
+        </button>
         <button onClick={() => setActiveSection('account')} className="text-blue-500 hover:underline">
           Account
         </button>
