@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { loadStripe } from '@stripe/stripe-js';
+import { app } from '@/lib/firebase'; // Importa o objeto app para configurar a região
 
-// Carrega o Stripe com a chave pública (utilize NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY no .env.local)
+// Carrega o Stripe com a chave pública (definida em NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY no .env.local)
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 export default function CheckoutPage() {
@@ -33,8 +34,8 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Chama a função do Firebase que cria a sessão de checkout no Stripe
-      const functions = getFunctions();
+      // Configure as funções especificando a região onde elas estão implantadas (ex.: "us-central1")
+      const functions = getFunctions(app, "us-central1");
       const createCheckoutSession = httpsCallable(functions, 'createCheckoutSession');
       const result = await createCheckoutSession({ productId });
       const { sessionId } = result.data;
