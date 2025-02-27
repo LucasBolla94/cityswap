@@ -1,12 +1,13 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useParams } from 'next/navigation';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
-import { useParams } from 'next/navigation';
 
 const ListingDetailPage = () => {
   const { id } = useParams();
+  const router = useRouter();
   const [listing, setListing] = useState(null);
   const [seller, setSeller] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -15,7 +16,7 @@ const ListingDetailPage = () => {
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
-  // Detectar se o dispositivo é desktop (>= 768px)
+  // Detecta se o dispositivo é desktop (>= 768px)
   useEffect(() => {
     const handleResize = () => {
       setIsDesktop(window.innerWidth >= 768);
@@ -25,6 +26,7 @@ const ListingDetailPage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Busca os detalhes do anúncio
   useEffect(() => {
     if (!id) return;
 
@@ -49,6 +51,7 @@ const ListingDetailPage = () => {
     fetchListing();
   }, [id]);
 
+  // Busca os dados do vendedor
   useEffect(() => {
     if (!listing || !listing.userId) return;
 
@@ -87,7 +90,7 @@ const ListingDetailPage = () => {
     }
   };
 
-  // Permite abrir o modal somente em desktop
+  // Abre o modal da imagem em desktop
   const handleImageClick = (idx = currentImageIndex) => {
     if (!isDesktop) return;
     setCurrentImageIndex(idx);
@@ -96,6 +99,11 @@ const ListingDetailPage = () => {
 
   const handleCloseModal = () => {
     setIsImageModalOpen(false);
+  };
+
+  // Função para direcionar ao checkout, passando o productId via rota dinâmica
+  const handleBuy = () => {
+    router.push(`/payments/checkout/${listing.id}`);
   };
 
   if (loading) {
@@ -123,7 +131,7 @@ const ListingDetailPage = () => {
           <div className="flex flex-col md:flex-row gap-8">
             {/* Lado Esquerdo: Foto */}
             <div className="relative md:w-7/12 w-full">
-              {/* Versão Desktop: exibe a imagem com botões de navegação */}
+              {/* Versão Desktop */}
               <div className="hidden md:block relative">
                 {listing.imageUrls && listing.imageUrls.length > 0 ? (
                   <div className="flex items-center justify-center h-[650px]">
@@ -159,7 +167,7 @@ const ListingDetailPage = () => {
                   &#62;
                 </button>
               </div>
-              {/* Versão Mobile: exibe uma foto por vez com scroll horizontal (sem funcionalidade de ampliar) */}
+              {/* Versão Mobile */}
               <div className="block md:hidden overflow-x-auto snap-x snap-mandatory flex">
                 {listing.imageUrls && listing.imageUrls.length > 0 ? (
                   listing.imageUrls.map((url, idx) => (
@@ -215,7 +223,6 @@ const ListingDetailPage = () => {
                 </div>
                 <hr className="my-4 border-gray-300" />
 
-                {/* Seção do vendedor encapsulada no Link */}
                 <Link href={`/profile/${listing.userId}`}>
                   <div className="flex flex-col md:flex-row items-center gap-4 mb-4 cursor-pointer">
                     <div className="w-16 h-16 rounded-full overflow-hidden">
@@ -231,12 +238,10 @@ const ListingDetailPage = () => {
                     </div>
                     <div className="flex flex-col">
                       <p className="text-md text-gray-700">
-                        <strong>Vendedor:</strong>{' '}
-                        {seller ? seller.name : 'Não disponível'}
+                        <strong>Vendedor:</strong> {seller ? seller.name : 'Não disponível'}
                       </p>
                       <p className="text-md text-gray-700">
-                        <strong>Nível:</strong>{' '}
-                        {seller ? seller.nivel : 'Não disponível'}
+                        <strong>Nível:</strong> {seller ? seller.nivel : 'Não disponível'}
                       </p>
                       {seller && seller.store && (
                         <p className="text-md text-gray-700">
@@ -253,7 +258,7 @@ const ListingDetailPage = () => {
               <div className="flex gap-4 mt-2">
                 <button
                   className="w-full py-3 bg-black text-white font-semibold rounded-full hover:bg-gray-800 transition-all shadow-md"
-                  onClick={() => alert('Processando a compra')}
+                  onClick={handleBuy}
                 >
                   Buy
                 </button>
@@ -271,7 +276,6 @@ const ListingDetailPage = () => {
         )}
       </div>
 
-      {/* Modal de imagem maior: renderizado apenas em desktop */}
       {isDesktop && isImageModalOpen && listing?.imageUrls?.length > 0 && (
         <div
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
