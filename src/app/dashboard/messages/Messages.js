@@ -1,15 +1,12 @@
 'use client';
 import React, { useState } from 'react';
 
-// Componentes internos para cada categoria de mensagem
-
-const Inbox = () => (
-  <div>
-    <h2 className="text-2xl font-bold mb-4">Inbox</h2>
-    <p>Aqui você verá todas as mensagens recebidas.</p>
-    {/* Aqui você pode mapear os emails, por exemplo, utilizando uma lista de objetos */}
-  </div>
-);
+// Importando o componente Inbox do arquivo separado
+import Inbox from './components/inbox';
+import Membermsg from './components/membermsg';
+import SuportMsg from './components/suportemsg';
+import SentMsg from './components/sentmsg';
+import DeletedMsg from './components/deletemsg';
 
 const FromMembers = () => (
   <div>
@@ -40,16 +37,16 @@ const Deleted = () => (
 );
 
 const Messages = () => {
-  // Estado que controla a aba ativa
+  // Estado que controla qual componente (aba) está ativo
   const [activeComponent, setActiveComponent] = useState("inbox");
 
   // Array com os itens do menu
   const menuItems = [
     { name: "Inbox", key: "inbox" },
-    { name: "From Members", key: "fromMembers" },
-    { name: "From CitySwapUk", key: "fromCitySwapUk" },
-    { name: "Sent", key: "sent" },
-    { name: "Deleted", key: "deleted" }
+    { name: "From Members", key: "membermsg" },
+    { name: "From CitySwapUk", key: "suportmsg" },
+    { name: "Sent", key: "sentmsg" },
+    { name: "Deleted", key: "deletedmsg" }
   ];
 
   return (
@@ -74,10 +71,10 @@ const Messages = () => {
       {/* Área principal à direita com o conteúdo */}
       <main className="flex-1 p-6">
         {activeComponent === "inbox" && <Inbox />}
-        {activeComponent === "fromMembers" && <FromMembers />}
-        {activeComponent === "fromCitySwapUk" && <FromCitySwapUk />}
-        {activeComponent === "sent" && <Sent />}
-        {activeComponent === "deleted" && <Deleted />}
+        {activeComponent === "membermsg" && <Membermsg />}
+        {activeComponent === "suportmsg" && <SuportMsg />}
+        {activeComponent === "sentmsg" && <SentMsg />}
+        {activeComponent === "deletedmsg" && <DeletedMsg />}
       </main>
     </div>
   );

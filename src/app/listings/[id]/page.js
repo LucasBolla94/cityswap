@@ -13,6 +13,17 @@ const ListingDetailPage = () => {
   const [error, setError] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  // Detectar se o dispositivo é desktop (>= 768px)
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -76,7 +87,9 @@ const ListingDetailPage = () => {
     }
   };
 
+  // Permite abrir o modal somente em desktop
   const handleImageClick = (idx = currentImageIndex) => {
+    if (!isDesktop) return;
     setCurrentImageIndex(idx);
     setIsImageModalOpen(true);
   };
@@ -111,23 +124,27 @@ const ListingDetailPage = () => {
             {/* Lado Esquerdo: Foto */}
             <div className="relative md:w-7/12 w-full">
               {/* Versão Desktop: exibe a imagem com botões de navegação */}
-              <div className="hidden md:block">
+              <div className="hidden md:block relative">
                 {listing.imageUrls && listing.imageUrls.length > 0 ? (
-                  <img
-                    src={listing.imageUrls[currentImageIndex]}
-                    alt={`Imagem ${currentImageIndex + 1}`}
-                    className="w-full object-cover rounded-md shadow-lg cursor-pointer"
-                    onClick={handleImageClick}
-                    style={{ maxHeight: '550px' }}
-                  />
+                  <div className="flex items-center justify-center h-[650px]">
+                    <img
+                      src={listing.imageUrls[currentImageIndex]}
+                      alt={`Imagem em tamanho real ${currentImageIndex + 1}`}
+                      className="w-full object-contain rounded-md shadow-lg cursor-pointer"
+                      onClick={() => handleImageClick()}
+                      style={{ maxHeight: '100%' }}
+                    />
+                  </div>
                 ) : (
-                  <img
-                    src="https://via.placeholder.com/600x300"
-                    alt="Imagem do produto"
-                    className="w-full object-cover rounded-md shadow-lg cursor-pointer"
-                    onClick={handleImageClick}
-                    style={{ minHeight: '300px' }}
-                  />
+                  <div className="flex items-center justify-center h-[650px]">
+                    <img
+                      src="https://via.placeholder.com/600x300"
+                      alt="Imagem do produto"
+                      className="w-full object-contain rounded-md shadow-lg cursor-pointer"
+                      onClick={() => handleImageClick()}
+                      style={{ minHeight: '300px' }}
+                    />
+                  </div>
                 )}
                 <button
                   onClick={handlePrevImage}
@@ -142,7 +159,7 @@ const ListingDetailPage = () => {
                   &#62;
                 </button>
               </div>
-              {/* Versão Mobile: exibe uma foto por vez com scroll horizontal */}
+              {/* Versão Mobile: exibe uma foto por vez com scroll horizontal (sem funcionalidade de ampliar) */}
               <div className="block md:hidden overflow-x-auto snap-x snap-mandatory flex">
                 {listing.imageUrls && listing.imageUrls.length > 0 ? (
                   listing.imageUrls.map((url, idx) => (
@@ -150,9 +167,9 @@ const ListingDetailPage = () => {
                       <img
                         src={url}
                         alt={`Imagem ${idx + 1}`}
-                        className="w-full object-cover rounded-md shadow-lg cursor-pointer"
+                        className="w-full object-contain rounded-md shadow-lg cursor-pointer"
                         style={{ maxHeight: '350px' }}
-                        onClick={() => handleImageClick(idx)}
+                        onClick={undefined}
                       />
                     </div>
                   ))
@@ -161,9 +178,9 @@ const ListingDetailPage = () => {
                     <img
                       src="https://via.placeholder.com/600x300"
                       alt="Imagem do produto"
-                      className="w-full object-cover rounded-md shadow-lg cursor-pointer"
+                      className="w-full object-contain rounded-md shadow-lg cursor-pointer"
                       style={{ minHeight: '300px' }}
-                      onClick={handleImageClick}
+                      onClick={undefined}
                     />
                   </div>
                 )}
@@ -173,7 +190,7 @@ const ListingDetailPage = () => {
             {/* Lado Direito: Detalhes */}
             <div className="flex flex-col justify-between md:w-5/12 w-full">
               <div>
-                <div className="flex flex-col md:flex-row md:items-baseline gap-2">
+                <div className="flex flex-col md:items-baseline gap-2">
                   <h1 className="text-3xl font-bold text-gray-800">
                     {listing.title}
                   </h1>
@@ -197,43 +214,51 @@ const ListingDetailPage = () => {
                   <p className="text-lg text-gray-600">{listing.description}</p>
                 </div>
                 <hr className="my-4 border-gray-300" />
-                <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-full overflow-hidden">
-                    <img
-                      src={
-                        seller && seller.photo
-                          ? seller.photo
-                          : 'https://via.placeholder.com/64'
-                      }
-                      alt="Vendor"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex flex-col">
-                    <p className="text-md text-gray-700">
-                      <strong>Vendedor:</strong> {seller ? seller.name : 'Não disponível'}
-                    </p>
-                    <p className="text-md text-gray-700">
-                      <strong>Nível:</strong> {seller ? seller.nivel : 'Não disponível'}
-                    </p>
-                    {seller && seller.store && (
+
+                {/* Seção do vendedor encapsulada no Link */}
+                <Link href={`/profile/${listing.userId}`}>
+                  <div className="flex flex-col md:flex-row items-center gap-4 mb-4 cursor-pointer">
+                    <div className="w-16 h-16 rounded-full overflow-hidden">
+                      <img
+                        src={
+                          seller && seller.photo
+                            ? seller.photo
+                            : 'https://via.placeholder.com/64'
+                        }
+                        alt="Vendor"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex flex-col">
                       <p className="text-md text-gray-700">
-                        <strong>Store:</strong> {seller.store}
+                        <strong>Vendedor:</strong>{' '}
+                        {seller ? seller.name : 'Não disponível'}
                       </p>
-                    )}
+                      <p className="text-md text-gray-700">
+                        <strong>Nível:</strong>{' '}
+                        {seller ? seller.nivel : 'Não disponível'}
+                      </p>
+                      {seller && seller.store && (
+                        <p className="text-md text-gray-700">
+                          <strong>Store:</strong> {seller.store}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </Link>
+
                 <hr className="my-4 border-gray-300" />
               </div>
-              <div className="flex gap-4 mt-8">
+              <h2 className="text-5xl text-gray-600">£{listing.price}</h2>
+              <div className="flex gap-4 mt-2">
                 <button
-                  className="w-full py-3 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-600 transition-all shadow-md"
+                  className="w-full py-3 bg-black text-white font-semibold rounded-full hover:bg-gray-800 transition-all shadow-md"
                   onClick={() => alert('Processando a compra')}
                 >
                   Buy
                 </button>
                 <button
-                  className="w-full py-3 bg-gray-300 text-black font-semibold rounded-md hover:bg-gray-400 transition-all shadow-md"
+                  className="w-full py-3 bg-gray-300 text-black font-semibold rounded-full hover:bg-gray-400 transition-all shadow-md"
                   onClick={() => alert('Anúncio salvo')}
                 >
                   Save
@@ -246,7 +271,8 @@ const ListingDetailPage = () => {
         )}
       </div>
 
-      {isImageModalOpen && (
+      {/* Modal de imagem maior: renderizado apenas em desktop */}
+      {isDesktop && isImageModalOpen && listing?.imageUrls?.length > 0 && (
         <div
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
           onClick={handleCloseModal}

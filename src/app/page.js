@@ -127,8 +127,9 @@ const HomePage = () => {
 
       <Banner />
 
-      <div className="w-screen min-h-screen flex flex-col px-4 py-8 flex-grow">
-        <main className="w-full flex-grow flex flex-col">
+      {/* Área de conteúdo com overflow para não ultrapassar o footer */}
+      <div className="flex-1 overflow-auto px-4 py-8">
+        <main className="w-full flex flex-col">
           {loading ? (
             <p className="text-center text-xl text-gray-500">Carregando anúncios...</p>
           ) : error ? (
@@ -139,7 +140,8 @@ const HomePage = () => {
         </main>
       </div>
 
-      <Footer />
+      {/* Footer com z-index para ficar acima se necessário */}
+      <Footer className="relative z-10" />
     </div>
   );
 };

@@ -32,7 +32,7 @@ const ListingGrid = () => {
 
   if (loading) {
     return (
-      <div className="w-screen h-screen px-4 py-8">
+      <div className="w-full min-h-screen px-4 py-8 overflow-x-hidden">
         <p className="text-center text-xl text-gray-500">Loading ...</p>
       </div>
     );
@@ -40,21 +40,21 @@ const ListingGrid = () => {
 
   if (error) {
     return (
-      <div className="w-screen h-screen px-4 py-8">
+      <div className="w-full min-h-screen px-4 py-8 overflow-x-hidden">
         <p className="text-center text-xl text-red-600">{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="w-screen h-screen px-4 py-8">
+    <div className="w-full min-h-screen px-4 py-8 overflow-x-hidden">
       {ads.length > 0 ? (
         // Exibe os anúncios lado a lado utilizando flex-wrap
-        <div className="flex flex-wrap gap-5">
+        <div className="flex flex-wrap gap-5 justify-center ">
           {ads.map(ad => (
             <div
               key={ad.id}
-              className="bg-white p-4 rounded-xl shadow-lg transition-transform cursor-pointer transform hover:scale-105 w-[200px] h-[250px]"
+              className="bg-white p-4 rounded-xl shadow-lg transition-transform cursor-pointer transform hover:scale-105 w-[350px] h-[400px] xl:w-[220px] xl:h-[300px] sm:w-[220px] sm:h-[350px]"
             >
               <Link href={`/listings/${ad.id}`}>
                 <div className="relative w-full h-2/3 mb-2">
@@ -68,11 +68,14 @@ const ListingGrid = () => {
                     className="w-full h-full object-cover rounded-lg"
                   />
                 </div>
-                <h3 className="text-sm font-semibold text-gray-800 mb-1 truncate">
+                <h3 className="text-xl font-semibold text-gray-800 mb-1 truncate">
                   {ad.title}
                 </h3>
+                <p className="text-xs text-gray-600 mb-1 truncate mb-4">
+                  {ad.subtitle}
+                </p>
                 <p className="text-sm font-bold text-gray-800">
-                  {ad.price ? `$${ad.price}` : 'Preço não disponível'}
+                  {ad.price ? `£${ad.price}` : 'Preço não disponível'}
                 </p>
               </Link>
             </div>
