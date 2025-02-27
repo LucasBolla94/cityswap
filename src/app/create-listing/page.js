@@ -27,11 +27,6 @@ const CreateListingPage = () => {
 
   // Estados para navegação entre etapas
   const [step, setStep] = useState('selectCategory'); // "selectCategory" ou "completeForm"
-  const [selectedCategoryDb, setSelectedCategoryDb] = useState('');
-
-  // Removido: Estados para o campo de cidade
-  // const [city, setCity] = useState('');
-  // const [cities, setCities] = useState([]);
 
   // Outros estados do formulário
   const [specs, setSpecs] = useState('');
@@ -134,14 +129,10 @@ const CreateListingPage = () => {
       setError('A categoria é obrigatória!');
       return;
     }
-    const selectedCat = categories.find(cat => cat.name === category);
-    if (selectedCat && selectedCat.db) {
-      setSelectedCategoryDb(selectedCat.db);
-      setError('');
-      setStep('completeForm');
-    } else {
-      setError('Erro: Propriedade "db" não encontrada para a categoria selecionada.');
-    }
+    // Como agora todos os anúncios serão salvos na coleção "ads",
+    // não precisamos buscar a propriedade "db" da categoria.
+    setError('');
+    setStep('completeForm');
   };
 
   // Função para enviar o formulário completo
@@ -174,11 +165,12 @@ const CreateListingPage = () => {
     setIsSubmitting(true);
 
     try {
-      await addDoc(collection(db, selectedCategoryDb), {
+      // Todos os anúncios serão salvos na coleção "ads"
+      await addDoc(collection(db, 'ads'), {
         title,
         description,
         price,
-        category,
+        category, // a categoria selecionada é salva como campo dentro do anúncio
         imageUrls: images,
         specs,
         condition,
