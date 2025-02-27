@@ -19,22 +19,11 @@ const ListingDetailPage = () => {
 
     const fetchListing = async () => {
       try {
-        const categoriesSnapshot = await getDocs(collection(db, 'categories'));
-        const categoriesList = categoriesSnapshot.docs.map(doc => doc.data());
-        const collectionNames = categoriesList.map(cat => cat.db).filter(Boolean);
-
-        let foundListing = null;
-        for (const collName of collectionNames) {
-          const docRef = doc(db, collName, id);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            foundListing = { id: docSnap.id, ...docSnap.data() };
-            break;
-          }
-        }
-
-        if (foundListing) {
-          setListing(foundListing);
+        // Busca o anúncio diretamente na collection 'ads'
+        const docRef = doc(db, 'ads', id);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setListing({ id: docSnap.id, ...docSnap.data() });
         } else {
           setError('Anúncio não encontrado.');
         }
