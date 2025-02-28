@@ -99,43 +99,6 @@ const ListingDetailPage = () => {
     router.push(`/payments/details/${listing.id}`);
   };
 
-  // Novo handler para "Send Message"
-  const handleSendMessage = async () => {
-    if (authLoading) return;
-    if (!currentUser) {
-      alert("Você precisa estar logado para enviar uma mensagem.");
-      return;
-    }
-    if (!seller) {
-      alert("Vendedor não encontrado.");
-      return;
-    }
-
-    // Ordena os UIDs para criar um chat único independente de quem inicia
-    const uids = [currentUser.uid, listing.userId].sort();
-    const chatId = `${uids[0]}_${uids[1]}_ads_${listing.id}`;
-
-    const chatRef = ref(rtdb, `chats/${chatId}`);
-
-    try {
-      const snapshot = await rtdbGet(chatRef);
-      if (!snapshot.exists()) {
-        const conversationData = {
-          participants: { user1: uids[0], user2: uids[1] },
-          createdAt: Date.now(),
-          messages: {},
-          productId: listing.id,
-        };
-        await rtdbSet(chatRef, conversationData);
-      }
-      // Redireciona para a página do chat
-      router.push(`/dashboard/messages/${chatId}`);
-    } catch (err) {
-      console.error("Erro ao criar ou acessar o chat:", err);
-      alert("Houve um erro ao iniciar o chat.");
-    }
-  };
-
   if (loading) {
     return (
       <div className="w-screen px-4 py-8">
@@ -289,12 +252,6 @@ const ListingDetailPage = () => {
                   onClick={() => alert('Anúncio salvo')}
                 >
                   Save
-                </button>
-                <button
-                  className="w-full py-3 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 transition-all shadow-md"
-                  onClick={handleSendMessage}
-                >
-                  Send Message
                 </button>
               </div>
             </div>

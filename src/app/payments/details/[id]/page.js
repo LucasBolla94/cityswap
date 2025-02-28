@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../../../lib/firebase';
+import { db, rtdb } from '../../../../lib/firebase';
+import { ref, get as rtdbGet, set as rtdbSet, push } from 'firebase/database';
 import { auth, useAuth } from '/src/lib/auth'; // Usando a sua lib de autenticação personalizada
 
 const DetailsPage = () => {
@@ -62,8 +63,8 @@ const DetailsPage = () => {
     fetchSeller();
   }, [listing]);
 
-  // Função para iniciar o chat e redirecionar o usuário
-  const handleSendMessage = () => {
+  // Função para iniciar o chat e redirecionar o usuário com a mensagem inicial do "Sistema"
+  const handleSendMessage = async () => {
     // Evita que a função rode enquanto a autenticação ainda está carregando
     if (authLoading) return;
 
@@ -86,13 +87,40 @@ const DetailsPage = () => {
       return;
     }
 
-    // Define explicitamente uid1 e uid2 para garantir a mesma ordem
+    // Ordena os UIDs para garantir a mesma ordem, criando um chat único
     const uid1 = currentUser.uid < listing.userId ? currentUser.uid : listing.userId;
     const uid2 = currentUser.uid < listing.userId ? listing.userId : currentUser.uid;
-    const chatId = `${uid1}_${uid2}`; // Correção usando template literal
+    const chatId = `${uid1}_${uid2}_ads_${listing.id}`;
+    const chatRef = ref(rtdb, `chats/${chatId}`);
 
-    // Redireciona para a página de mensagens usando apenas o chatId (não expomos sender e receiver na URL)
-    router.push(`/dashboard/messages/${chatId}`);
+    try {
+      const snapshot = await rtdbGet(chatRef);
+      if (!snapshot.exists()) {
+        // Cria o chat com dados iniciais
+        const conversationData = {
+          participants: { user1: uid1, user2: uid2 },
+          createdAt: Date.now(),
+          messages: {},
+          productId: listing.id,
+        };
+        await rtdbSet(chatRef, conversationData);
+
+        // Envia a primeira mensagem do "Sistema" com os detalhes do produto
+        const messagesRef = ref(rtdb, `chats/${chatId}/messages`);
+        const initialMessage = {
+          sender: "system",
+          text: `Foto do: ${listing.imageUrls && listing.imageUrls.length > 0 ? listing.imageUrls[0] : 'N/A'} | Title: ${listing.title} | Price: £${listing.price}\nProduto: ${listing.title} | SubTitle: ${listing.subtitle || 'N/A'}`,
+          timestamp: Date.now(),
+        };
+        const newMessageRef = push(messagesRef);
+        await rtdbSet(newMessageRef, initialMessage);
+      }
+      // Redireciona para a página do chat
+      router.push(`/dashboard/messages/${chatId}`);
+    } catch (err) {
+      console.error("Erro ao criar ou acessar o chat:", err);
+      setError("Houve um erro ao iniciar o chat.");
+    }
   };
 
   // Exibe um loading enquanto carregamos o anúncio ou o estado da autenticação
