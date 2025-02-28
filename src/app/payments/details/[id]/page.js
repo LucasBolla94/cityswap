@@ -2,8 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
-import { db, rtdb } from '../../../../lib/firebase';
-import { ref, get as rtdbGet, set as rtdbSet, push } from 'firebase/database';
+import { db } from '../../../../lib/firebase';
 import { auth, useAuth } from '/src/lib/auth';
 
 const DetailsPage = () => {
@@ -16,7 +15,6 @@ const DetailsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Busca os detalhes do anúncio
   useEffect(() => {
     if (!id) return;
     const fetchListing = async () => {
@@ -38,7 +36,6 @@ const DetailsPage = () => {
     fetchListing();
   }, [id]);
 
-  // Busca os dados do vendedor assim que o anúncio for carregado
   useEffect(() => {
     if (!listing?.userId) return;
     const fetchSeller = async () => {
@@ -59,7 +56,6 @@ const DetailsPage = () => {
     fetchSeller();
   }, [listing]);
 
-  // Função para iniciar o chat (sem enviar mensagem automática)
   const handleSendMessage = async () => {
     if (authLoading) return;
     if (!currentUser) {
@@ -76,32 +72,14 @@ const DetailsPage = () => {
       return;
     }
 
-    // Ordena os UIDs para criar um chat único
+    // Criar ID único para o chat
     const uid1 = currentUser.uid < listing.userId ? currentUser.uid : listing.userId;
     const uid2 = currentUser.uid < listing.userId ? listing.userId : currentUser.uid;
     const composite = `${uid1}_${uid2}_ads_${listing.id}`;
-    const chatId = btoa(composite); // Gera um ID único em Base64
+    const chatId = btoa(composite);
 
-    const chatRef = ref(rtdb, `chats/${chatId}`);
-
-    try {
-      // Cria o chat se ele não existir (messages inicia como objeto vazio)
-      const chatSnapshot = await rtdbGet(chatRef);
-      if (!chatSnapshot.exists()) {
-        const conversationData = {
-          participants: { user1: uid1, user2: uid2 },
-          createdAt: Date.now(),
-          messages: {},
-          productId: listing.id,
-        };
-        await rtdbSet(chatRef, conversationData);
-      }
-
-      router.push(`/dashboard/messages/${chatId}`);
-    } catch (err) {
-      console.error("Erro ao criar ou acessar o chat:", err);
-      setError("Houve um erro ao iniciar o chat.");
-    }
+    // Apenas redireciona para a página do chat
+    router.push(`/dashboard/messages/${chatId}`);
   };
 
   if (loading || authLoading) {
