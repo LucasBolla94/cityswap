@@ -6,7 +6,7 @@ import { ref, onValue, get as rtdbGet, set as rtdbSet, push } from 'firebase/dat
 import { useAuth } from '../../../../lib/auth';
 
 const ChatPage = () => {
-  const { id } = useParams(); // chatId no formato "uid1_uid2"
+  const { id } = useParams(); // chatId pode ter o formato "uid1_uid2" ou "uid1_uid2_ads_listingId"
   const { user: currentUser, loading: authLoading } = useAuth();
 
   const [chatData, setChatData] = useState(null);
@@ -14,10 +14,8 @@ const ChatPage = () => {
   const [authError, setAuthError] = useState('');
   const [localLoading, setLocalLoading] = useState(true);
 
-  // Referência para rolagem automática das mensagens
   const messagesEndRef = useRef(null);
 
-  // Função para retornar a foto do usuário com base no senderId
   const getUserPhoto = (senderId) => {
     if (senderId === currentUser.uid) {
       return currentUser.photoURL || 'https://via.placeholder.com/40';
@@ -27,16 +25,25 @@ const ChatPage = () => {
 
   useEffect(() => {
     if (!id) return;
-    
     if (authLoading) return;
-    
     if (!currentUser) {
       setAuthError("Você precisa estar logado para acessar este chat.");
       setLocalLoading(false);
       return;
     }
 
-    const [uid1, uid2] = id.split('_');
+    // Atualizamos o parse do id para lidar com chats exclusivos para anúncios
+    const parts = id.split('_');
+    let uid1, uid2, productId = null;
+    if (parts.length === 2) {
+      [uid1, uid2] = parts;
+    } else if (parts.length >= 4 && parts[2] === 'ads') {
+      [uid1, uid2] = parts;
+      productId = parts.slice(3).join('_');
+    } else {
+      // fallback se o formato não for o esperado
+      [uid1, uid2] = parts;
+    }
 
     if (uid1 === uid2) {
       setAuthError("Você não pode iniciar um chat consigo mesmo.");
@@ -56,10 +63,12 @@ const ChatPage = () => {
     rtdbGet(chatRef)
       .then((snapshot) => {
         if (!snapshot.exists()) {
+          // Cria os dados da conversa incluindo productId, se existir
           const conversationData = {
             participants: { user1: uid1, user2: uid2 },
             createdAt: Date.now(),
-            messages: {} 
+            messages: {},
+            ...(productId && { productId })
           };
           return rtdbSet(chatRef, conversationData);
         }
@@ -82,14 +91,12 @@ const ChatPage = () => {
     };
   }, [id, authLoading, currentUser]);
 
-  // Rolagem automática para a última mensagem
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatData]);
 
   const handleSendMessage = async () => {
     if (newMessage.trim() === '') return;
-    
     try {
       const messagesRef = ref(rtdb, `chats/${id}/messages`);
       const newMessageRef = push(messagesRef);
@@ -118,12 +125,9 @@ const ChatPage = () => {
 
   return (
     <div className="relative flex flex-col h-screen bg-gray-50 overflow-hidden">
-      {/* Cabeçalho fixo */}
       <header className="fixed top-0 left-0 right-0 bg-blue-600 text-white p-4 text-center font-semibold text-lg z-10">
         Chat
       </header>
-
-      {/* Área de mensagens */}
       <main className="flex-1 p-4 mt-16 mb-20 overflow-y-auto space-y-4">
         {chatData && chatData.messages ? (
           Object.entries(chatData.messages)
@@ -157,8 +161,6 @@ const ChatPage = () => {
         )}
         <div ref={messagesEndRef} />
       </main>
-
-      {/* Campo de entrada fixo */}
       <footer className="fixed bottom-0 left-0 right-0 p-4 border-t bg-white z-10">
         <div className="flex gap-2">
           <input

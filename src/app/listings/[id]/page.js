@@ -3,11 +3,14 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import { db, rtdb } from '../../../lib/firebase';
+import { ref, get as rtdbGet, set as rtdbSet } from 'firebase/database';
+import { useAuth } from '../../../lib/auth';
 
 const ListingDetailPage = () => {
   const { id } = useParams();
   const router = useRouter();
+  const { user: currentUser, loading: authLoading } = useAuth();
   const [listing, setListing] = useState(null);
   const [seller, setSeller] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -16,7 +19,6 @@ const ListingDetailPage = () => {
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
-  // Detecta se o dispositivo é desktop (>= 768px)
   useEffect(() => {
     const handleResize = () => {
       setIsDesktop(window.innerWidth >= 768);
@@ -26,13 +28,10 @@ const ListingDetailPage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Busca os detalhes do anúncio
   useEffect(() => {
     if (!id) return;
-
     const fetchListing = async () => {
       try {
-        // Busca o anúncio diretamente na collection 'ads'
         const docRef = doc(db, 'ads', id);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -47,14 +46,11 @@ const ListingDetailPage = () => {
         setLoading(false);
       }
     };
-
     fetchListing();
   }, [id]);
 
-  // Busca os dados do vendedor
   useEffect(() => {
     if (!listing || !listing.userId) return;
-
     const fetchSeller = async () => {
       try {
         let sellerRef = doc(db, 'users', listing.userId);
@@ -70,7 +66,6 @@ const ListingDetailPage = () => {
         console.error(err);
       }
     };
-
     fetchSeller();
   }, [listing]);
 
@@ -90,7 +85,6 @@ const ListingDetailPage = () => {
     }
   };
 
-  // Abre o modal da imagem em desktop
   const handleImageClick = (idx = currentImageIndex) => {
     if (!isDesktop) return;
     setCurrentImageIndex(idx);
@@ -101,9 +95,45 @@ const ListingDetailPage = () => {
     setIsImageModalOpen(false);
   };
 
-  // Função para direcionar ao checkout, passando o productId via rota dinâmica
   const handleBuy = () => {
     router.push(`/payments/details/${listing.id}`);
+  };
+
+  // Novo handler para "Send Message"
+  const handleSendMessage = async () => {
+    if (authLoading) return;
+    if (!currentUser) {
+      alert("Você precisa estar logado para enviar uma mensagem.");
+      return;
+    }
+    if (!seller) {
+      alert("Vendedor não encontrado.");
+      return;
+    }
+
+    // Ordena os UIDs para criar um chat único independente de quem inicia
+    const uids = [currentUser.uid, listing.userId].sort();
+    const chatId = `${uids[0]}_${uids[1]}_ads_${listing.id}`;
+
+    const chatRef = ref(rtdb, `chats/${chatId}`);
+
+    try {
+      const snapshot = await rtdbGet(chatRef);
+      if (!snapshot.exists()) {
+        const conversationData = {
+          participants: { user1: uids[0], user2: uids[1] },
+          createdAt: Date.now(),
+          messages: {},
+          productId: listing.id,
+        };
+        await rtdbSet(chatRef, conversationData);
+      }
+      // Redireciona para a página do chat
+      router.push(`/dashboard/messages/${chatId}`);
+    } catch (err) {
+      console.error("Erro ao criar ou acessar o chat:", err);
+      alert("Houve um erro ao iniciar o chat.");
+    }
   };
 
   if (loading) {
@@ -129,9 +159,7 @@ const ListingDetailPage = () => {
       <div className="px-4 md:px-8 py-8 max-h-screen overflow-auto">
         {listing ? (
           <div className="flex flex-col md:flex-row gap-8">
-            {/* Lado Esquerdo: Foto */}
             <div className="relative md:w-7/12 w-full">
-              {/* Versão Desktop */}
               <div className="hidden md:block relative">
                 {listing.imageUrls && listing.imageUrls.length > 0 ? (
                   <div className="flex items-center justify-center h-[650px]">
@@ -167,7 +195,6 @@ const ListingDetailPage = () => {
                   &#62;
                 </button>
               </div>
-              {/* Versão Mobile */}
               <div className="block md:hidden overflow-x-auto snap-x snap-mandatory flex">
                 {listing.imageUrls && listing.imageUrls.length > 0 ? (
                   listing.imageUrls.map((url, idx) => (
@@ -177,7 +204,6 @@ const ListingDetailPage = () => {
                         alt={`Imagem ${idx + 1}`}
                         className="w-full object-contain rounded-md shadow-lg cursor-pointer"
                         style={{ maxHeight: '350px' }}
-                        onClick={undefined}
                       />
                     </div>
                   ))
@@ -188,14 +214,12 @@ const ListingDetailPage = () => {
                       alt="Imagem do produto"
                       className="w-full object-contain rounded-md shadow-lg cursor-pointer"
                       style={{ minHeight: '300px' }}
-                      onClick={undefined}
                     />
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Lado Direito: Detalhes */}
             <div className="flex flex-col justify-between md:w-5/12 w-full">
               <div>
                 <div className="flex flex-col md:items-baseline gap-2">
@@ -222,7 +246,6 @@ const ListingDetailPage = () => {
                   <p className="text-lg text-gray-600">{listing.description}</p>
                 </div>
                 <hr className="my-4 border-gray-300" />
-
                 <Link href={`/profile/${listing.userId}`}>
                   <div className="flex flex-col md:flex-row items-center gap-4 mb-4 cursor-pointer">
                     <div className="w-16 h-16 rounded-full overflow-hidden">
@@ -251,7 +274,6 @@ const ListingDetailPage = () => {
                     </div>
                   </div>
                 </Link>
-
                 <hr className="my-4 border-gray-300" />
               </div>
               <h2 className="text-5xl text-gray-600">£{listing.price}</h2>
@@ -267,6 +289,12 @@ const ListingDetailPage = () => {
                   onClick={() => alert('Anúncio salvo')}
                 >
                   Save
+                </button>
+                <button
+                  className="w-full py-3 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 transition-all shadow-md"
+                  onClick={handleSendMessage}
+                >
+                  Send Message
                 </button>
               </div>
             </div>
