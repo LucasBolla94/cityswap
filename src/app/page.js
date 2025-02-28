@@ -1,8 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { db } from '../lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
 import Navbar from '../components/NavBar';
 import Footer from '../components/Footer';
 import Banner from '../components/Banner';
@@ -10,7 +8,7 @@ import ListingGrid from '../components/ListingGrid';
 
 const HomePage = () => {
   const [ads, setAds] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -19,65 +17,56 @@ const HomePage = () => {
   const [selectedCity, setSelectedCity] = useState('');
 
   useEffect(() => {
-    const fetchAds = async () => {
+    // Busca as categorias
+    const fetchCategories = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, 'ads'));
-        const adsList = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setAds(adsList);
+        const response = await fetch('/api/categories');
+        if (!response.ok) throw new Error('Erro ao carregar categorias');
+        const data = await response.json();
+        setCategories(data);
       } catch (error) {
-        setError('Erro ao carregar os anúncios.');
-      } finally {
-        setLoading(false);
+        console.error(error);
       }
     };
 
-    fetchAds();
-  }, []);
-
-  useEffect(() => {
-    const fetchCategories = async () => {
+    // Busca as cidades
+    const fetchCities = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, 'categories'));
-        const categoriesList = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setCategories(categoriesList);
+        const response = await fetch('/api/cities');
+        if (!response.ok) throw new Error('Erro ao carregar cidades');
+        const data = await response.json();
+        setCities(data);
       } catch (error) {
-        console.error('Erro ao carregar categorias:', error);
+        console.error(error);
       }
     };
 
     fetchCategories();
-  }, []);
-
-  useEffect(() => {
-    const fetchCities = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, 'ads-city'));
-        const citiesList = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setCities(citiesList);
-      } catch (error) {
-        console.error('Erro ao carregar cidades:', error);
-      }
-    };
-
     fetchCities();
   }, []);
 
-  const filterAds = () => {
-    return ads.filter(ad => {
-      const matchesCategory = selectedCategory ? ad.category === selectedCategory : true;
-      const matchesSearch = ad.title.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCity = selectedCity ? ad.city === selectedCity : true;
-      return matchesCategory && matchesSearch && matchesCity;
-    });
+  const handleSearch = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = new URLSearchParams();
+      if (selectedCategory.trim()) params.append('category', selectedCategory);
+      if (selectedCity.trim()) params.append('city', selectedCity);
+      if (searchQuery.trim()) params.append('title', searchQuery.trim());
+
+      const url = `/api/search?${params.toString()}`;
+      console.log('Search URL:', url); // Debug
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Erro ao buscar anúncios');
+
+      const data = await response.json();
+      setAds(data.data);
+    } catch (error) {
+      setError('Erro ao buscar anúncios.');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -119,6 +108,7 @@ const HomePage = () => {
           </select>
           <button
             className="w-full sm:w-auto p-3 bg-blue-500 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onClick={handleSearch}
           >
             Search
           </button>
@@ -127,7 +117,6 @@ const HomePage = () => {
 
       <Banner />
 
-      {/* Área de conteúdo com overflow para não ultrapassar o footer */}
       <div className="flex-1 overflow-auto px-4 py-8">
         <main className="w-full flex flex-col">
           {loading ? (
@@ -135,12 +124,11 @@ const HomePage = () => {
           ) : error ? (
             <p className="text-center text-xl text-red-600">{error}</p>
           ) : (
-            <ListingGrid ads={filterAds()} />
+            <ListingGrid ads={ads} />
           )}
         </main>
       </div>
 
-      {/* Footer com z-index para ficar acima se necessário */}
       <Footer className="relative z-10" />
     </div>
   );

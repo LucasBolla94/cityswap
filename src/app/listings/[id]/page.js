@@ -2,9 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db, rtdb } from '../../../lib/firebase';
-import { ref, get as rtdbGet, set as rtdbSet } from 'firebase/database';
 import { useAuth } from '../../../lib/auth';
 
 const ListingDetailPage = () => {
@@ -28,14 +25,20 @@ const ListingDetailPage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // 🚀 Nova função para buscar o anúncio da API
   useEffect(() => {
     if (!id) return;
+
     const fetchListing = async () => {
       try {
-        const docRef = doc(db, 'ads', id);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setListing({ id: docSnap.id, ...docSnap.data() });
+        const response = await fetch(`/api/listings`);
+        if (!response.ok) throw new Error('Erro ao buscar anúncios');
+        
+        const data = await response.json();
+        const foundListing = data.data.find((item) => item.id === id);
+
+        if (foundListing) {
+          setListing(foundListing);
         } else {
           setError('Anúncio não encontrado.');
         }
@@ -46,40 +49,40 @@ const ListingDetailPage = () => {
         setLoading(false);
       }
     };
+
     fetchListing();
   }, [id]);
 
+  // Busca informações do vendedor
   useEffect(() => {
     if (!listing || !listing.userId) return;
+
     const fetchSeller = async () => {
       try {
-        let sellerRef = doc(db, 'users', listing.userId);
-        let sellerSnap = await getDoc(sellerRef);
-        if (!sellerSnap.exists()) {
-          sellerRef = doc(db, 'business-users', listing.userId);
-          sellerSnap = await getDoc(sellerRef);
-        }
-        if (sellerSnap.exists()) {
-          setSeller(sellerSnap.data());
-        }
+        const response = await fetch(`/api/users/${listing.userId}`);
+        if (!response.ok) throw new Error('Erro ao buscar vendedor');
+
+        const sellerData = await response.json();
+        setSeller(sellerData);
       } catch (err) {
         console.error(err);
       }
     };
+
     fetchSeller();
   }, [listing]);
 
   const handleNextImage = () => {
-    if (listing?.imageUrls && listing.imageUrls.length > 0) {
-      setCurrentImageIndex(prevIndex =>
+    if (listing?.imageUrls?.length > 0) {
+      setCurrentImageIndex((prevIndex) =>
         prevIndex === listing.imageUrls.length - 1 ? 0 : prevIndex + 1
       );
     }
   };
 
   const handlePrevImage = () => {
-    if (listing?.imageUrls && listing.imageUrls.length > 0) {
-      setCurrentImageIndex(prevIndex =>
+    if (listing?.imageUrls?.length > 0) {
+      setCurrentImageIndex((prevIndex) =>
         prevIndex === 0 ? listing.imageUrls.length - 1 : prevIndex - 1
       );
     }
@@ -124,11 +127,11 @@ const ListingDetailPage = () => {
           <div className="flex flex-col md:flex-row gap-8">
             <div className="relative md:w-7/12 w-full">
               <div className="hidden md:block relative">
-                {listing.imageUrls && listing.imageUrls.length > 0 ? (
+                {listing.imageUrls?.length > 0 ? (
                   <div className="flex items-center justify-center h-[650px]">
                     <img
                       src={listing.imageUrls[currentImageIndex]}
-                      alt={`Imagem em tamanho real ${currentImageIndex + 1}`}
+                      alt={`Imagem ${currentImageIndex + 1}`}
                       className="w-full object-contain rounded-md shadow-lg cursor-pointer"
                       onClick={() => handleImageClick()}
                       style={{ maxHeight: '100%' }}
@@ -140,7 +143,6 @@ const ListingDetailPage = () => {
                       src="https://via.placeholder.com/600x300"
                       alt="Imagem do produto"
                       className="w-full object-contain rounded-md shadow-lg cursor-pointer"
-                      onClick={() => handleImageClick()}
                       style={{ minHeight: '300px' }}
                     />
                   </div>
@@ -158,85 +160,13 @@ const ListingDetailPage = () => {
                   &#62;
                 </button>
               </div>
-              <div className="block md:hidden overflow-x-auto snap-x snap-mandatory flex">
-                {listing.imageUrls && listing.imageUrls.length > 0 ? (
-                  listing.imageUrls.map((url, idx) => (
-                    <div key={idx} className="flex-shrink-0 w-full snap-center">
-                      <img
-                        src={url}
-                        alt={`Imagem ${idx + 1}`}
-                        className="w-full object-contain rounded-md shadow-lg cursor-pointer"
-                        style={{ maxHeight: '350px' }}
-                      />
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex-shrink-0 w-full snap-center">
-                    <img
-                      src="https://via.placeholder.com/600x300"
-                      alt="Imagem do produto"
-                      className="w-full object-contain rounded-md shadow-lg cursor-pointer"
-                      style={{ minHeight: '300px' }}
-                    />
-                  </div>
-                )}
-              </div>
             </div>
 
             <div className="flex flex-col justify-between md:w-5/12 w-full">
               <div>
-                <div className="flex flex-col md:items-baseline gap-2">
-                  <h1 className="text-3xl font-bold text-gray-800">
-                    {listing.title}
-                  </h1>
-                  {listing.subtitle && (
-                    <p className="text-lg text-gray-600 opacity-60">
-                      {listing.subtitle}
-                    </p>
-                  )}
-                </div>
+                <h1 className="text-3xl font-bold text-gray-800">{listing.title}</h1>
                 <hr className="my-4 border-gray-300" />
-                <div className="mb-4">
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                    Especifications:
-                  </h3>
-                  <p className="text-lg text-gray-600 mb-4">
-                    {listing.specifications || 'N/A'}
-                  </p>
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                    Description:
-                  </h3>
-                  <p className="text-lg text-gray-600">{listing.description}</p>
-                </div>
-                <hr className="my-4 border-gray-300" />
-                <Link href={`/profile/${listing.userId}`}>
-                  <div className="flex flex-col md:flex-row items-center gap-4 mb-4 cursor-pointer">
-                    <div className="w-16 h-16 rounded-full overflow-hidden">
-                      <img
-                        src={
-                          seller && seller.photo
-                            ? seller.photo
-                            : 'https://via.placeholder.com/64'
-                        }
-                        alt="Vendor"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex flex-col">
-                      <p className="text-md text-gray-700">
-                        <strong>Vendedor:</strong> {seller ? seller.name : 'Não disponível'}
-                      </p>
-                      <p className="text-md text-gray-700">
-                        <strong>Nível:</strong> {seller ? seller.nivel : 'Não disponível'}
-                      </p>
-                      {seller && seller.store && (
-                        <p className="text-md text-gray-700">
-                          <strong>Store:</strong> {seller.store}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </Link>
+                <p className="text-lg text-gray-600">{listing.description}</p>
                 <hr className="my-4 border-gray-300" />
               </div>
               <h2 className="text-5xl text-gray-600">£{listing.price}</h2>
@@ -260,30 +190,6 @@ const ListingDetailPage = () => {
           <p className="text-center text-gray-600">Anúncio não encontrado.</p>
         )}
       </div>
-
-      {isDesktop && isImageModalOpen && listing?.imageUrls?.length > 0 && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
-          onClick={handleCloseModal}
-        >
-          <div
-            className="w-screen h-screen flex items-center justify-center bg-black"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={listing.imageUrls[currentImageIndex]}
-              alt={`Imagem em tamanho real ${currentImageIndex + 1}`}
-              className="max-w-full max-h-full object-contain"
-            />
-            <button
-              onClick={handleCloseModal}
-              className="absolute top-4 right-4 text-white bg-red-600 p-2 rounded-sm hover:bg-red-700"
-            >
-              X
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
