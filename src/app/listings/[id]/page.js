@@ -103,7 +103,7 @@ const ListingDetailPage = () => {
 
   // Função para direcionar ao checkout, passando o productId via rota dinâmica
   const handleBuy = () => {
-    router.push(`/payments/checkout/${listing.id}`);
+    router.push(`/payments/details/${listing.id}`);
   };
 
   if (loading) {

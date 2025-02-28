@@ -1,18 +1,19 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function SuccessPage({ params }) {
-  const { id } = params; // "id" é o session_id vindo da URL
+export default function SuccessPage() {
+  const { session_id } = useParams(); // Obtém o session_id da URL
   const [loading, setLoading] = useState(true);
   const [receiptData, setReceiptData] = useState(null);
 
   useEffect(() => {
-    // Função para buscar os detalhes da sessão de checkout a partir do backend
+    if (!session_id) return;
+
     const fetchReceiptData = async () => {
       try {
-        // Exemplo: chamada para uma API que retorna os dados do recibo com base no session_id
-        const res = await fetch(`/api/checkout-session?session_id=${id}`);
+        const res = await fetch(`/api/checkout-session?session_id=${session_id}`);
         if (!res.ok) {
           throw new Error('Erro ao carregar os dados da sessão');
         }
@@ -20,11 +21,10 @@ export default function SuccessPage({ params }) {
         setReceiptData(data);
       } catch (error) {
         console.error('Erro:', error);
-        // Para fins de teste, você pode definir dados simulados
         setReceiptData({
-          productTitle: 'Title Ads',
-          sellerName: 'Vendedor Name',
-          amountPaid: '99.99',
+          productTitle: 'Produto Desconhecido',
+          sellerName: 'Vendedor Desconhecido',
+          amountPaid: 'N/A',
           purchaseDate: new Date().toLocaleString(),
         });
       } finally {
@@ -33,7 +33,7 @@ export default function SuccessPage({ params }) {
     };
 
     fetchReceiptData();
-  }, [id]);
+  }, [session_id]);
 
   if (loading) {
     return (
@@ -61,23 +61,15 @@ export default function SuccessPage({ params }) {
       
       <div className="bg-white shadow-md rounded-md p-6 w-full max-w-md">
         <h2 className="text-xl font-semibold mb-4">Recibo</h2>
-        <p className="mb-2">
-          <strong>Name of Product bought:</strong> {productTitle}
-        </p>
-        <p className="mb-2">
-          <strong>Seller:</strong> {sellerName}
-        </p>
-        <p className="mb-2">
-          <strong>Amount £:</strong> {amountPaid}
-        </p>
-        <p className="mb-2">
-          <strong>Date:</strong> {purchaseDate}
-        </p>
+        <p className="mb-2"><strong>Produto:</strong> {productTitle}</p>
+        <p className="mb-2"><strong>Vendedor:</strong> {sellerName}</p>
+        <p className="mb-2"><strong>Valor Pago (£):</strong> {amountPaid}</p>
+        <p className="mb-2"><strong>Data da Compra:</strong> {purchaseDate}</p>
       </div>
       
       <Link href="/dashboard">
         <button className="mt-6 py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 transition-all">
-          Continue
+          Continuar
         </button>
       </Link>
     </div>

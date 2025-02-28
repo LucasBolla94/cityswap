@@ -1,38 +1,101 @@
 'use client';
-import React, { useEffect, useState } from 'react';
-import { db } from '../../../../lib/firebase';
-import { ref, onValue, push, set } from 'firebase/database';
+import React, { useEffect, useState, useRef } from 'react';
+import { useParams } from 'next/navigation';
+import { rtdb } from '../../../../lib/firebase';
+import { ref, onValue, get as rtdbGet, set as rtdbSet, push } from 'firebase/database';
+import { useAuth } from '../../../../lib/auth';
 
-const ChatPage = ({ params }) => {
-  const { id } = params; // 'id' representa o ID do chat
+const ChatPage = () => {
+  const { id } = useParams(); // chatId no formato "uid1_uid2"
+  const { user: currentUser, loading: authLoading } = useAuth();
+
   const [chatData, setChatData] = useState(null);
   const [newMessage, setNewMessage] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [localLoading, setLocalLoading] = useState(true);
 
-  // Escuta as atualizações do chat no Realtime Database
+  // Referência para rolagem automática das mensagens
+  const messagesEndRef = useRef(null);
+
+  // Função para retornar a foto do usuário com base no senderId
+  const getUserPhoto = (senderId) => {
+    if (senderId === currentUser.uid) {
+      return currentUser.photoURL || 'https://via.placeholder.com/40';
+    }
+    // Para o outro participante, substitua pela URL correta, se disponível, ou mantenha o placeholder
+    return 'https://via.placeholder.com/40';
+  };
+
   useEffect(() => {
-    // Utilize a variável "db" que foi importada para referenciar o banco de dados
-    const chatRef = ref(db, `chats/${id}`);
-    const unsubscribe = onValue(chatRef, (snapshot) => {
-      const data = snapshot.val();
-      setChatData(data);
-    });
+    if (!id) return;
+    
+    if (authLoading) return;
+    
+    if (!currentUser) {
+      setAuthError("Você precisa estar logado para acessar este chat.");
+      setLocalLoading(false);
+      return;
+    }
 
-    // Limpeza do listener quando o componente desmontar
-    return () => unsubscribe();
-  }, [id]);
+    const [uid1, uid2] = id.split('_');
 
-  // Função para enviar mensagem para o Realtime Database
+    if (uid1 === uid2) {
+      setAuthError("Você não pode iniciar um chat consigo mesmo.");
+      setLocalLoading(false);
+      return;
+    }
+
+    if (currentUser.uid !== uid1 && currentUser.uid !== uid2) {
+      setAuthError("Você não tem permissão para acessar este chat.");
+      setLocalLoading(false);
+      return;
+    }
+
+    const chatRef = ref(rtdb, `chats/${id}`);
+    let unsubscribe = () => {};
+
+    rtdbGet(chatRef)
+      .then((snapshot) => {
+        if (!snapshot.exists()) {
+          const conversationData = {
+            participants: { user1: uid1, user2: uid2 },
+            createdAt: Date.now(),
+            messages: {} 
+          };
+          return rtdbSet(chatRef, conversationData);
+        }
+      })
+      .then(() => {
+        unsubscribe = onValue(chatRef, (snapshot) => {
+          const data = snapshot.val();
+          setChatData(data);
+          setLocalLoading(false);
+        });
+      })
+      .catch((err) => {
+        console.error("Erro ao acessar o chat:", err);
+        setAuthError("Erro ao acessar o chat.");
+        setLocalLoading(false);
+      });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [id, authLoading, currentUser]);
+
+  // Rolagem automática para a última mensagem
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatData]);
+
   const handleSendMessage = async () => {
     if (newMessage.trim() === '') return;
-
+    
     try {
-      // Referência para a lista de mensagens dentro do chat
-      const messagesRef = ref(db, `chats/${id}/messages`);
-      // Cria uma nova entrada de mensagem (push gera um novo ID)
+      const messagesRef = ref(rtdb, `chats/${id}/messages`);
       const newMessageRef = push(messagesRef);
-      // Define os dados da mensagem
-      await set(newMessageRef, {
-        sender: "User", // Aqui você pode substituir por dados do usuário autenticado
+      await rtdbSet(newMessageRef, {
+        sender: currentUser.uid,
         text: newMessage,
         timestamp: Date.now(),
       });
@@ -42,55 +105,79 @@ const ChatPage = ({ params }) => {
     }
   };
 
-  return (
-    <div className="flex h-screen">
-      {/* Sidebar com a lista de conversas */}
-      <aside className="w-1/4 bg-gray-100 p-4 border-r">
-        <h2 className="text-xl font-bold mb-4">Conversas</h2>
-        <ul>
-          <li className="mb-2 cursor-pointer hover:text-blue-600">Chat 1</li>
-          <li className="mb-2 cursor-pointer hover:text-blue-600">Chat 2</li>
-          <li className="mb-2 cursor-pointer hover:text-blue-600">Chat 3</li>
-        </ul>
-      </aside>
+  if (authLoading || localLoading) {
+    return <p className="flex h-screen justify-center items-center text-xl text-gray-500">Carregando...</p>;
+  }
 
-      {/* Área principal do chat */}
-      <main className="flex-1 p-4 flex flex-col">
-        <header className="mb-4 border-b pb-2">
-          <h1 className="text-2xl font-bold">Chat com ID: {id}</h1>
-        </header>
-        
-        {/* Área onde as mensagens serão exibidas */}
-        <section className="flex-1 overflow-y-auto mb-4">
-          {chatData ? (
-            // Mapeia as mensagens (assumindo que estão armazenadas como objeto)
-            Object.entries(chatData.messages || {}).map(([key, message]) => (
-              <div key={key} className="mb-2">
-                <strong>{message.sender}:</strong> {message.text}
+  if (authError) {
+    return (
+      <div className="flex h-screen justify-center items-center">
+        <p className="text-red-600 text-xl">{authError}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Cabeçalho */}
+      <header className="bg-blue-600 text-white p-4 text-center font-semibold text-lg">
+        Chat
+      </header>
+
+      {/* Área de mensagens */}
+      <main className="flex-1 p-4 overflow-y-auto space-y-4">
+        {chatData && chatData.messages ? (
+          Object.entries(chatData.messages)
+            .sort(([, a], [, b]) => a.timestamp - b.timestamp)
+            .map(([key, message]) => (
+              <div key={key} className={`flex items-start gap-2 ${message.sender === currentUser.uid ? 'justify-end' : 'justify-start'}`}>
+                {/* Foto do remetente */}
+                {message.sender !== currentUser.uid && (
+                  <img
+                    src={getUserPhoto(message.sender)}
+                    alt="Foto do remetente"
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                )}
+                <div className={`max-w-xs p-3 rounded-lg shadow ${message.sender === currentUser.uid ? 'bg-blue-100' : 'bg-gray-200'}`}>
+                  <p className="text-sm text-gray-800">{message.text}</p>
+                  <span className="block mt-1 text-xs text-gray-500">
+                    {new Date(message.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+                {message.sender === currentUser.uid && (
+                  <img
+                    src={getUserPhoto(message.sender)}
+                    alt="Sua foto"
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                )}
               </div>
             ))
-          ) : (
-            <p>Carregando mensagens...</p>
-          )}
-        </section>
-        
-        {/* Campo de input para digitar novas mensagens */}
-        <footer className="flex gap-2">
+        ) : (
+          <p className="text-center text-gray-500">Sem mensagens ainda.</p>
+        )}
+        <div ref={messagesEndRef} />
+      </main>
+
+      {/* Campo de entrada e botão de envio */}
+      <footer className="p-4 border-t bg-white">
+        <div className="flex gap-2">
           <input
             type="text"
             placeholder="Digite sua mensagem..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            className="flex-1 p-2 border rounded"
+            className="flex-1 border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-600"
           />
           <button
             onClick={handleSendMessage}
-            className="p-2 bg-blue-600 text-white rounded"
+            className="bg-blue-600 hover:bg-blue-700 transition-colors text-white font-semibold rounded-lg px-4 py-3"
           >
             Enviar
           </button>
-        </footer>
-      </main>
+        </div>
+      </footer>
     </div>
   );
 };
