@@ -2,11 +2,11 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { rtdb } from '../../../../lib/firebase';
-import { ref, onValue, get as rtdbGet, set as rtdbSet, push } from 'firebase/database';
+import { ref, onValue, get as rtdbGet, set as rtdbSet, push, update } from 'firebase/database';
 import { useAuth } from '../../../../lib/auth';
 
 const ChatPage = () => {
-  const { id } = useParams(); // chatId pode ter o formato "uid1_uid2" ou "uid1_uid2_ads_listingId"
+  const { id } = useParams(); // Agora espera o formato "uid1_uid2_ads_listingId"
   const { user: currentUser, loading: authLoading } = useAuth();
 
   const [chatData, setChatData] = useState(null);
@@ -16,11 +16,39 @@ const ChatPage = () => {
 
   const messagesEndRef = useRef(null);
 
+  // Se não encontrar a foto do usuário, retorna a imagem padrão localizada em /public/img/chat/userchat.png
   const getUserPhoto = (senderId) => {
-    if (senderId === currentUser.uid) {
-      return currentUser.photoURL || 'https://via.placeholder.com/40';
+    if (currentUser && senderId === currentUser.uid) {
+      return currentUser.photoURL ? currentUser.photoURL : '/img/chat/userchat.png';
     }
-    return 'https://via.placeholder.com/40';
+    return '/img/chat/userchat.png';
+  };
+
+  // Função para renderizar o conteúdo da mensagem, verificando se há uma miniatura
+  const renderMessageContent = (message) => {
+    // Regex para detectar o padrão {img=url}
+    const pattern = /\{img=([^}]+)\}/;
+    const match = message.text.match(pattern);
+    if (match) {
+      const url = match[1];
+      // Remove o placeholder do texto
+      const textWithoutImage = message.text.replace(pattern, '').trim();
+      return (
+        <>
+          {textWithoutImage && (
+            <p className="text-sm text-gray-800 break-words">{textWithoutImage}</p>
+          )}
+          <img
+            src={url}
+            alt="Miniatura"
+            className="mt-2 rounded max-w-full object-contain"
+            style={{ maxHeight: '150px' }}
+          />
+        </>
+      );
+    } else {
+      return <p className="text-sm text-gray-800 break-words">{message.text}</p>;
+    }
   };
 
   useEffect(() => {
@@ -32,18 +60,16 @@ const ChatPage = () => {
       return;
     }
 
-    // Atualizamos o parse do id para lidar com chats exclusivos para anúncios
+    // Garante que o chatId siga o formato: uid1_uid2_ads_listingId
     const parts = id.split('_');
-    let uid1, uid2, productId = null;
-    if (parts.length === 2) {
-      [uid1, uid2] = parts;
-    } else if (parts.length >= 4 && parts[2] === 'ads') {
-      [uid1, uid2] = parts;
-      productId = parts.slice(3).join('_');
-    } else {
-      // fallback se o formato não for o esperado
-      [uid1, uid2] = parts;
+    if (parts.length < 4 || parts[2] !== 'ads') {
+      setAuthError("Formato de chat inválido.");
+      setLocalLoading(false);
+      return;
     }
+    const uid1 = parts[0];
+    const uid2 = parts[1];
+    const productId = parts.slice(3).join('_');
 
     if (uid1 === uid2) {
       setAuthError("Você não pode iniciar um chat consigo mesmo.");
@@ -63,12 +89,12 @@ const ChatPage = () => {
     rtdbGet(chatRef)
       .then((snapshot) => {
         if (!snapshot.exists()) {
-          // Cria os dados da conversa incluindo productId, se existir
+          // Cria os dados da conversa incluindo productId
           const conversationData = {
             participants: { user1: uid1, user2: uid2 },
             createdAt: Date.now(),
             messages: {},
-            ...(productId && { productId })
+            productId
           };
           return rtdbSet(chatRef, conversationData);
         }
@@ -91,6 +117,20 @@ const ChatPage = () => {
     };
   }, [id, authLoading, currentUser]);
 
+  // Marcação de mensagens como lidas para o destinatário
+  useEffect(() => {
+    if (!currentUser) return;
+    if (chatData && chatData.messages) {
+      Object.entries(chatData.messages).forEach(([key, message]) => {
+        // Se a mensagem não foi enviada pelo usuário atual e ainda não foi marcada como lida
+        if (message.sender !== currentUser.uid && !message.read) {
+          const msgRef = ref(rtdb, `chats/${id}/messages/${key}`);
+          update(msgRef, { read: true });
+        }
+      });
+    }
+  }, [chatData, currentUser, id]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatData]);
@@ -112,7 +152,11 @@ const ChatPage = () => {
   };
 
   if (authLoading || localLoading) {
-    return <p className="flex h-screen justify-center items-center text-xl text-gray-500">Carregando...</p>;
+    return (
+      <p className="flex h-screen justify-center items-center text-xl text-gray-500">
+        Carregando...
+      </p>
+    );
   }
 
   if (authError) {
@@ -133,7 +177,12 @@ const ChatPage = () => {
           Object.entries(chatData.messages)
             .sort(([, a], [, b]) => a.timestamp - b.timestamp)
             .map(([key, message]) => (
-              <div key={key} className={`flex items-start gap-2 ${message.sender === currentUser.uid ? 'justify-end' : 'justify-start'}`}>
+              <div
+                key={key}
+                className={`flex items-start gap-2 ${
+                  message.sender === currentUser.uid ? 'justify-end' : 'justify-start'
+                }`}
+              >
                 {message.sender !== currentUser.uid && (
                   <img
                     src={getUserPhoto(message.sender)}
@@ -141,10 +190,17 @@ const ChatPage = () => {
                     className="w-10 h-10 rounded-full object-cover"
                   />
                 )}
-                <div className={`max-w-xs p-3 rounded-lg shadow ${message.sender === currentUser.uid ? 'bg-blue-100' : 'bg-gray-200'}`}>
-                  <p className="text-sm text-gray-800">{message.text}</p>
+                <div
+                  className={`p-3 rounded-lg shadow break-words ${
+                    message.sender === currentUser.uid ? 'bg-blue-100' : 'bg-gray-200'
+                  } max-w-[80%]`}
+                >
+                  {renderMessageContent(message)}
                   <span className="block mt-1 text-xs text-gray-500">
                     {new Date(message.timestamp).toLocaleTimeString()}
+                    {message.sender === currentUser.uid && message.read && (
+                      <span className="ml-2 text-green-500">Lido</span>
+                    )}
                   </span>
                 </div>
                 {message.sender === currentUser.uid && (

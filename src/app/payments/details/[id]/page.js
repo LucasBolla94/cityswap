@@ -109,7 +109,7 @@ const DetailsPage = () => {
         const messagesRef = ref(rtdb, `chats/${chatId}/messages`);
         const initialMessage = {
           sender: "system",
-          text: `Foto do: ${listing.imageUrls && listing.imageUrls.length > 0 ? listing.imageUrls[0] : 'N/A'} | Title: ${listing.title} | Price: £${listing.price}\nProduto: ${listing.title} | SubTitle: ${listing.subtitle || 'N/A'}`,
+          text: `{img=${listing.imageUrls && listing.imageUrls.length > 0 ? listing.imageUrls[0] : 'N/A'}} | Title: ${listing.title} | Price: £${listing.price}\nProduto: ${listing.title} | SubTitle: ${listing.subtitle || 'N/A'}`,
           timestamp: Date.now(),
         };
         const newMessageRef = push(messagesRef);
