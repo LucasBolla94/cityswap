@@ -38,6 +38,10 @@ const CreateListingPage = () => {
   const [selectedDeliveryOption, setSelectedDeliveryOption] = useState('');
   const [returnPolicy, setReturnPolicy] = useState('');
 
+  // Estados para o campo "City"
+  const [cities, setCities] = useState([]);
+  const [selectedCity, setSelectedCity] = useState('');
+
   // Buscar categorias do Firestore
   useEffect(() => {
     const fetchCategories = async () => {
@@ -72,6 +76,24 @@ const CreateListingPage = () => {
       }
     };
     fetchDeliveryOptions();
+  }, []);
+
+  // Buscar opções de cidades da coleção 'ads-city'
+  useEffect(() => {
+    const fetchCities = async () => {
+      try {
+        const citiesCollection = collection(db, 'ads-city');
+        const snapshot = await getDocs(citiesCollection);
+        const citiesList = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setCities(citiesList);
+      } catch (error) {
+        console.error("Erro ao buscar cidades:", error);
+      }
+    };
+    fetchCities();
   }, []);
 
   if (loading) return <div className="p-4">Carregando...</div>;
@@ -129,8 +151,6 @@ const CreateListingPage = () => {
       setError('A categoria é obrigatória!');
       return;
     }
-    // Como agora todos os anúncios serão salvos na coleção "ads",
-    // não precisamos buscar a propriedade "db" da categoria.
     setError('');
     setStep('completeForm');
   };
@@ -156,6 +176,10 @@ const CreateListingPage = () => {
       setError('A categoria é obrigatória!');
       return;
     }
+    if (!selectedCity) {
+      setError('A cidade é obrigatória!');
+      return;
+    }
     if (images.length < 3) {
       setError('Você precisa adicionar pelo menos 3 fotos.');
       return;
@@ -165,12 +189,13 @@ const CreateListingPage = () => {
     setIsSubmitting(true);
 
     try {
-      // Todos os anúncios serão salvos na coleção "ads"
+      // Salvar anúncio na coleção "ads" incluindo o campo "city" e definindo "status-ads" como false
       await addDoc(collection(db, 'ads'), {
         title,
         description,
         price,
-        category, // a categoria selecionada é salva como campo dentro do anúncio
+        category, // Categoria selecionada
+        city: selectedCity, // Cidade selecionada
         imageUrls: images,
         specs,
         condition,
@@ -181,6 +206,7 @@ const CreateListingPage = () => {
         return: returnPolicy,
         userId: user.uid,
         createdAt: new Date(),
+        "status-ads": false
       });
 
       router.push('/dashboard/my-listings');
@@ -244,7 +270,25 @@ const CreateListingPage = () => {
 
         {step === 'completeForm' && (
           <form onSubmit={handleSubmit} className="space-y-6 px-4 sm:px-6">
-            {/* Campo "Cidade" removido */}
+            {/* Campo "City" */}
+            <div>
+              <label htmlFor="city" className="block text-lg font-medium text-gray-700">
+                City
+              </label>
+              <select
+                id="city"
+                value={selectedCity}
+                onChange={(e) => setSelectedCity(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Selecione uma cidade</option>
+                {cities.map((city) => (
+                  <option key={city.id} value={city.name}>
+                    {city.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* Título */}
             <div>
@@ -288,9 +332,7 @@ const CreateListingPage = () => {
                     onChange={() => setAcceptBids(!acceptBids)}
                   />
                   <div
-                    className={`w-10 h-4 rounded-full border shadow ${
-                      acceptBids ? 'bg-black' : 'bg-neutral-200'
-                    }`}
+                    className={`w-10 h-4 rounded-full border shadow ${acceptBids ? 'bg-black' : 'bg-neutral-200'}`}
                   ></div>
                   <div
                     className={`dot absolute w-6 h-6 bg-white rounded-full shadow -left-1 -top-1 transition-transform ${
@@ -302,21 +344,20 @@ const CreateListingPage = () => {
               </label>
             </div>
 
-            {/* Switch para "Sell by Grooby" */}
+            {/* Switch para "Sell by Grooby" (desativado) */}
             <div className="flex items-center">
-              <label htmlFor="sellByGrooby" className="flex items-center cursor-pointer">
+              <label htmlFor="sellByGrooby" className="flex items-center cursor-not-allowed">
                 <div className="relative">
                   <input
                     type="checkbox"
                     id="sellByGrooby"
                     className="sr-only"
                     checked={sellByGrooby}
-                    onChange={() => setSellByGrooby(!sellByGrooby)}
+                    onChange={() => {}}
+                    disabled
                   />
                   <div
-                    className={`w-10 h-4 rounded-full border shadow ${
-                      sellByGrooby ? 'bg-black' : 'bg-neutral-200'
-                    }`}
+                    className={`w-10 h-4 rounded-full border shadow ${sellByGrooby ? 'bg-black' : 'bg-neutral-200'}`}
                   ></div>
                   <div
                     className={`dot absolute w-6 h-6 bg-white rounded-full shadow -left-1 -top-1 transition-transform ${
