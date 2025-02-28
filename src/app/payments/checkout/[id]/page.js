@@ -3,51 +3,58 @@ import { useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { loadStripe } from '@stripe/stripe-js';
-import { app } from '@/lib/firebase'; // Importa o objeto app para configurar a região
+import { app } from '@/lib/firebase';
 
 // Carrega o Stripe com a chave pública (definida em NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY no .env.local)
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 export default function CheckoutPage() {
-  const { id } = useParams(); // 'id' é o productId vindo da rota dinâmica /payments/checkout/[id]
+  // Renomeando a propriedade "id" para "productId" para maior clareza
+  const { id: productId } = useParams();
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handlePay = async (event) => {
     event.preventDefault();
+
+    // Validação do endereço
+    if (address.trim().length < 10) {
+      alert('Por favor, insira um endereço válido.');
+      return;
+    }
+
+    // Verifica se o productId foi passado via URL
+    if (!productId) {
+      console.error("Product ID não foi encontrado na URL.");
+      return;
+    }
+
     setLoading(true);
-
     try {
-      // Validação opcional do endereço (ex.: tamanho mínimo)
-      if (address.trim().length < 10) {
-        alert('Por favor, insira um endereço válido.');
-        setLoading(false);
-        return;
-      }
-
-      // Usa o productId extraído da rota
-      const productId = id;
-      if (!productId) {
-        console.error("Product ID não foi encontrado na URL.");
-        setLoading(false);
-        return;
-      }
-
-      // Configure as funções especificando a região onde elas estão implantadas (ex.: "us-central1")
+      // Configura as funções indicando a região (ex.: "us-central1")
       const functions = getFunctions(app, "us-central1");
       const createCheckoutSession = httpsCallable(functions, 'createCheckoutSession');
-      const result = await createCheckoutSession({ productId });
-      const { sessionId } = result.data;
+      
+      // Chama a função passando o productId
+      const { data } = await createCheckoutSession({ productId });
+      if (!data || !data.sessionId) {
+        throw new Error("Session ID não retornado.");
+      }
 
-      // Redireciona o usuário para a página de pagamento do Stripe
+      // Aguarda o carregamento do Stripe
       const stripe = await stripePromise;
-      const { error } = await stripe.redirectToCheckout({ sessionId });
+      if (!stripe) {
+        throw new Error("Stripe não foi carregado.");
+      }
+
+      // Redireciona para a página de checkout do Stripe
+      const { error } = await stripe.redirectToCheckout({ sessionId: data.sessionId });
       if (error) {
         console.error("Erro no redirecionamento do Stripe:", error);
       }
-    } catch (error) {
-      console.error("Erro ao criar sessão de checkout:", error);
+    } catch (err) {
+      console.error("Erro ao criar sessão de checkout:", err);
     } finally {
       setLoading(false);
     }
