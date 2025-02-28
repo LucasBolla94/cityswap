@@ -1,4 +1,3 @@
-// /src/app/dashboard/messages/[id]/page.js
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
@@ -7,45 +6,24 @@ import { ref, onValue, get as rtdbGet, set as rtdbSet, push, update } from 'fire
 import { useAuth } from '../../../../lib/auth';
 
 const ChatPage = () => {
-  const { id } = useParams(); // Aqui, "id" é o token seguro
+  const { id } = useParams(); // id está em Base64 (possivelmente URL-encoded)
   const { user: currentUser, loading: authLoading } = useAuth();
 
   const [chatData, setChatData] = useState(null);
-  const [chatKey, setChatKey] = useState(null);
   const [newMessage, setNewMessage] = useState('');
   const [authError, setAuthError] = useState('');
   const [localLoading, setLocalLoading] = useState(true);
 
   const messagesEndRef = useRef(null);
 
-  const getUserPhoto = (senderId) => {
-    if (currentUser && senderId === currentUser.uid) {
-      return currentUser.photoURL ? currentUser.photoURL : '/img/chat/userchat.png';
-    }
-    return '/img/chat/userchat.png';
-  };
-
-  const renderMessageContent = (message) => {
-    const pattern = /\{img=([^}]+)\}/;
-    const match = message.text.match(pattern);
-    if (match) {
-      const url = match[1];
-      const textWithoutImage = message.text.replace(pattern, '').trim();
-      return (
-        <>
-          {textWithoutImage && (
-            <p className="text-sm text-gray-800 break-words">{textWithoutImage}</p>
-          )}
-          <img
-            src={url}
-            alt="Miniatura"
-            className="mt-2 rounded max-w-full object-contain"
-            style={{ maxHeight: '150px' }}
-          />
-        </>
-      );
-    } else {
-      return <p className="text-sm text-gray-800 break-words">{message.text}</p>;
+  // Função para decodificar o id recebido (agora decodifica a URL antes do Base64)
+  const decodeChatId = (encodedId) => {
+    try {
+      // Decodifica possíveis caracteres especiais da URL
+      const decodedURI = decodeURIComponent(encodedId);
+      return atob(decodedURI);
+    } catch (err) {
+      return null;
     }
   };
 
@@ -58,63 +36,92 @@ const ChatPage = () => {
       return;
     }
 
-    // Busca o chat cujo token seja igual ao id recebido na URL
-    const chatsRef = ref(rtdb, 'chats');
-    const unsubscribeChats = onValue(chatsRef, (snapshot) => {
-      const data = snapshot.val();
-      let foundChatKey = null;
-      if (data) {
-        Object.keys(data).forEach((key) => {
-          if (data[key].token === id) {
-            foundChatKey = key;
-          }
+    const composite = decodeChatId(id);
+    if (!composite) {
+      setAuthError("Formato de chat inválido.");
+      setLocalLoading(false);
+      return;
+    }
+
+    const parts = composite.split('_');
+    // Espera-se que o composite tenha o formato: uid1_uid2_ads_listingId
+    if (parts.length < 4 || parts[2] !== 'ads') {
+      setAuthError("Formato de chat inválido.");
+      setLocalLoading(false);
+      return;
+    }
+    const uid1 = parts[0];
+    const uid2 = parts[1];
+    const productId = parts.slice(3).join('_');
+
+    if (uid1 === uid2) {
+      setAuthError("Você não pode iniciar um chat consigo mesmo.");
+      setLocalLoading(false);
+      return;
+    }
+
+    if (currentUser.uid !== uid1 && currentUser.uid !== uid2) {
+      setAuthError("Você não tem permissão para acessar este chat.");
+      setLocalLoading(false);
+      return;
+    }
+
+    const chatRef = ref(rtdb, `chats/${id}`);
+    let unsubscribe = () => {};
+
+    rtdbGet(chatRef)
+      .then((snapshot) => {
+        if (!snapshot.exists()) {
+          // Cria os dados da conversa incluindo productId
+          const conversationData = {
+            participants: { user1: uid1, user2: uid2 },
+            createdAt: Date.now(),
+            messages: {},
+            productId
+          };
+          return rtdbSet(chatRef, conversationData);
+        }
+      })
+      .then(() => {
+        unsubscribe = onValue(chatRef, (snapshot) => {
+          const data = snapshot.val();
+          setChatData(data);
+          setLocalLoading(false);
         });
-      }
-      if (!foundChatKey) {
-        setAuthError("Chat não encontrado.");
-        setLocalLoading(false);
-        return;
-      }
-      setChatKey(foundChatKey);
-      const chatRef = ref(rtdb, `chats/${foundChatKey}`);
-      const unsubscribeChat = onValue(chatRef, (snapshot) => {
-        const chatData = snapshot.val();
-        setChatData(chatData);
+      })
+      .catch((err) => {
+        console.error("Erro ao acessar o chat:", err);
+        setAuthError("Erro ao acessar o chat.");
         setLocalLoading(false);
       });
-      return () => {
-        unsubscribeChat();
-      };
-    }, (error) => {
-      console.error("Erro ao buscar chat:", error);
-      setAuthError("Erro ao acessar o chat.");
-      setLocalLoading(false);
-    });
 
     return () => {
-      unsubscribeChats();
+      unsubscribe();
     };
   }, [id, authLoading, currentUser]);
 
-  // Marca as mensagens não enviadas pelo usuário como lidas
+  // Marca as mensagens como lidas para o destinatário
   useEffect(() => {
-    if (!currentUser || !chatKey || !chatData || !chatData.messages) return;
-    Object.entries(chatData.messages).forEach(([key, message]) => {
-      if (message.sender !== currentUser.uid && !message.read) {
-        const msgRef = ref(rtdb, `chats/${chatKey}/messages/${key}`);
-        update(msgRef, { read: true });
-      }
-    });
-  }, [chatData, currentUser, chatKey]);
+    if (!currentUser) return;
+    if (chatData && chatData.messages) {
+      Object.entries(chatData.messages).forEach(([key, message]) => {
+        // Se a mensagem não foi enviada pelo usuário atual e ainda não foi marcada como lida
+        if (message.sender !== currentUser.uid && !message.read) {
+          const msgRef = ref(rtdb, `chats/${id}/messages/${key}`);
+          update(msgRef, { read: true });
+        }
+      });
+    }
+  }, [chatData, currentUser, id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatData]);
 
   const handleSendMessage = async () => {
-    if (newMessage.trim() === '' || !chatKey) return;
+    if (newMessage.trim() === '') return;
     try {
-      const messagesRef = ref(rtdb, `chats/${chatKey}/messages`);
+      const messagesRef = ref(rtdb, `chats/${id}/messages`);
       const newMessageRef = push(messagesRef);
       await rtdbSet(newMessageRef, {
         sender: currentUser.uid,
@@ -161,7 +168,7 @@ const ChatPage = () => {
               >
                 {message.sender !== currentUser.uid && (
                   <img
-                    src={getUserPhoto(message.sender)}
+                    src="/img/chat/userchat.png"
                     alt="Foto do remetente"
                     className="w-10 h-10 rounded-full object-cover"
                   />
@@ -171,7 +178,7 @@ const ChatPage = () => {
                     message.sender === currentUser.uid ? 'bg-blue-100' : 'bg-gray-200'
                   } max-w-[80%]`}
                 >
-                  {renderMessageContent(message)}
+                  <p className="text-sm text-gray-800 break-words">{message.text}</p>
                   <span className="block mt-1 text-xs text-gray-500">
                     {new Date(message.timestamp).toLocaleTimeString()}
                     {message.sender === currentUser.uid && message.read && (
@@ -181,7 +188,7 @@ const ChatPage = () => {
                 </div>
                 {message.sender === currentUser.uid && (
                   <img
-                    src={getUserPhoto(message.sender)}
+                    src="/img/chat/userchat.png"
                     alt="Sua foto"
                     className="w-10 h-10 rounded-full object-cover"
                   />

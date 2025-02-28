@@ -1,31 +1,32 @@
-// /src/app/dashboard/messages/components/membermsg.js
 'use client';
+
 import React, { useState, useEffect } from 'react';
 import { rtdb } from '@/lib/firebase';
 import { ref, onValue } from 'firebase/database';
-import { useAuth } from '@/lib/auth';
-import Link from 'next/link';
 
 const Membermsg = () => {
-  const { user: currentUser, loading: authLoading } = useAuth();
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Substitua pelo ID real do usuário autenticado
+  const userId = "user123";
 
   useEffect(() => {
-    if (authLoading || !currentUser) return;
-    const userId = currentUser.uid;
+    // Referência para a raiz dos chats no Realtime Database
     const chatsRef = ref(rtdb, 'chats');
     
+    // Inscreve-se para receber os dados em tempo real
     const unsubscribe = onValue(chatsRef, (snapshot) => {
       const data = snapshot.val();
       const convs = [];
       
       if (data) {
         Object.keys(data).forEach((chatId) => {
-          const chat = data[chatId];
-          // Filtra apenas conversas do tipo 'ads' e que o usuário participa
-          if (chatId.includes('_ads_') && chat.participants) {
-            if (chat.participants.user1 === userId || chat.participants.user2 === userId) {
+          // Filtra apenas as conversas dos 'ads' (chatId que contém "_ads_")
+          // Caso a string esteja ofuscada em Base64, a lógica de filtragem deverá ser adaptada conforme sua aplicação.
+          if (chatId.includes('_ads_')) {
+            const chat = data[chatId];
+            // Verifica se o usuário participa da conversa (supondo que chat.participants seja um objeto { user1, user2 })
+            if (chat.participants && (chat.participants.user1 === userId || chat.participants.user2 === userId)) {
               convs.push({ id: chatId, ...chat });
             }
           }
@@ -37,35 +38,31 @@ const Membermsg = () => {
     });
 
     return () => unsubscribe();
-  }, [authLoading, currentUser]);
-
-  if (authLoading || loading) {
-    return <p>Carregando mensagens...</p>;
-  }
+  }, [userId]);
 
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">Inbox dos Ads</h2>
-      {conversations.length > 0 ? (
-        <ul className="space-y-4">
-          {conversations.map((conversation) => (
-            <li key={conversation.id} className="p-4 border rounded-lg shadow-md bg-white">
-              <Link href={`/dashboard/messages/${conversation.token}`}>
-                <a className="block">
-                  <p className="font-semibold">
-                    Última mensagem: {conversation.lastMessage || 'Nenhuma mensagem'}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {conversation.lastMessageTimestamp &&
-                      new Date(conversation.lastMessageTimestamp).toLocaleString()}
-                  </p>
-                </a>
-              </Link>
-            </li>
-          ))}
-        </ul>
+      {loading ? (
+        <p>Carregando mensagens...</p>
       ) : (
-        <p>Nenhuma mensagem encontrada.</p>
+        <ul className="space-y-4">
+          {conversations.length > 0 ? (
+            conversations.map((conversation) => (
+              <li key={conversation.id} className="p-4 border rounded-lg shadow-md bg-white">
+                <p className="font-semibold">
+                  Última mensagem: {conversation.lastMessage || 'Nenhuma mensagem'}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {conversation.lastMessageTimestamp &&
+                    new Date(conversation.lastMessageTimestamp).toLocaleString()}
+                </p>
+              </li>
+            ))
+          ) : (
+            <p>Nenhuma mensagem encontrada.</p>
+          )}
+        </ul>
       )}
     </div>
   );
