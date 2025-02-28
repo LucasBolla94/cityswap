@@ -22,7 +22,6 @@ const ChatPage = () => {
     if (senderId === currentUser.uid) {
       return currentUser.photoURL || 'https://via.placeholder.com/40';
     }
-    // Para o outro participante, substitua pela URL correta, se disponível, ou mantenha o placeholder
     return 'https://via.placeholder.com/40';
   };
 
@@ -118,20 +117,19 @@ const ChatPage = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      {/* Cabeçalho */}
-      <header className="bg-blue-600 text-white p-4 text-center font-semibold text-lg">
+    <div className="relative flex flex-col h-screen bg-gray-50 overflow-hidden">
+      {/* Cabeçalho fixo */}
+      <header className="fixed top-0 left-0 right-0 bg-blue-600 text-white p-4 text-center font-semibold text-lg z-10">
         Chat
       </header>
 
       {/* Área de mensagens */}
-      <main className="flex-1 p-4 overflow-y-auto space-y-4">
+      <main className="flex-1 p-4 mt-16 mb-20 overflow-y-auto space-y-4">
         {chatData && chatData.messages ? (
           Object.entries(chatData.messages)
             .sort(([, a], [, b]) => a.timestamp - b.timestamp)
             .map(([key, message]) => (
               <div key={key} className={`flex items-start gap-2 ${message.sender === currentUser.uid ? 'justify-end' : 'justify-start'}`}>
-                {/* Foto do remetente */}
                 {message.sender !== currentUser.uid && (
                   <img
                     src={getUserPhoto(message.sender)}
@@ -160,8 +158,8 @@ const ChatPage = () => {
         <div ref={messagesEndRef} />
       </main>
 
-      {/* Campo de entrada e botão de envio */}
-      <footer className="p-4 border-t bg-white">
+      {/* Campo de entrada fixo */}
+      <footer className="fixed bottom-0 left-0 right-0 p-4 border-t bg-white z-10">
         <div className="flex gap-2">
           <input
             type="text"
