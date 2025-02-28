@@ -1,3 +1,4 @@
+// /src/app/payments/details/[id]/page.js
 'use client';
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -6,16 +7,15 @@ import { db, rtdb } from '../../../../lib/firebase';
 import { ref, get as rtdbGet, set as rtdbSet, push } from 'firebase/database';
 import { auth, useAuth } from '/src/lib/auth';
 
-// Função auxiliar para gerar um token aleatório
+// Função auxiliar para gerar um token seguro
 const generateToken = () => {
-  return Math.random().toString(36).substring(2, 15);
+  return Math.random().toString(36).substring(2, 15) +
+         Math.random().toString(36).substring(2, 15);
 };
 
 const DetailsPage = () => {
   const { id } = useParams();
   const router = useRouter();
-
-  // Obtém o usuário autenticado usando o hook customizado
   const { user: currentUser, loading: authLoading } = useAuth();
 
   const [listing, setListing] = useState(null);
@@ -23,7 +23,7 @@ const DetailsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Busca os detalhes do anúncio
+  // Carrega os detalhes do anúncio
   useEffect(() => {
     if (!id) return;
     const fetchListing = async () => {
@@ -46,7 +46,7 @@ const DetailsPage = () => {
     fetchListing();
   }, [id]);
 
-  // Busca os dados do vendedor assim que o anúncio for carregado
+  // Carrega os dados do vendedor
   useEffect(() => {
     if (!listing?.userId) return;
     const fetchSeller = async () => {
@@ -68,53 +68,48 @@ const DetailsPage = () => {
     fetchSeller();
   }, [listing]);
 
-  // Função para criar ou acessar o chat e enviar a mensagem inicial do sistema
+  // Função para iniciar o chat e enviar a mensagem automática
   const handleSendMessage = async () => {
-    // Evita que a função rode enquanto a autenticação ainda está carregando
     if (authLoading) return;
 
-    // Se o usuário não estiver logado, redireciona para o login
     if (!currentUser) {
       setError('Você precisa estar logado para enviar mensagens.');
       router.push('/login');
       return;
     }
 
-    // Garante que o anúncio esteja carregado e possua um userId
     if (!listing?.userId) {
       setError('Dados do anúncio indisponíveis.');
       return;
     }
 
-    // Evita que o usuário inicie um chat consigo mesmo
     if (currentUser.uid === listing.userId) {
       setError('Você não pode iniciar um chat consigo mesmo.');
       return;
     }
 
-    // Ordena os UIDs para garantir a mesma ordem e criar um chat único
+    // Gera uma chave composta para o chat e define a ordem dos UIDs
     const uid1 = currentUser.uid < listing.userId ? currentUser.uid : listing.userId;
     const uid2 = currentUser.uid < listing.userId ? listing.userId : currentUser.uid;
-    const chatKey = `${uid1}_${uid2}_ads_${listing.id}`;
-    const chatRef = ref(rtdb, `chats/${chatKey}`);
+    const chatId = `${uid1}_${uid2}_ads_${listing.id}`;
+    const chatRef = ref(rtdb, `chats/${chatId}`);
 
     try {
       const snapshot = await rtdbGet(chatRef);
-      let chatToken;
+      let token;
       if (!snapshot.exists()) {
-        // Se o chat não existir, gera um token seguro e cria o chat
-        chatToken = generateToken();
+        token = generateToken(); // Gera o token seguro
         const conversationData = {
           participants: { user1: uid1, user2: uid2 },
           createdAt: Date.now(),
           messages: {},
           productId: listing.id,
-          token: chatToken,
+          token, // Armazena o token
         };
         await rtdbSet(chatRef, conversationData);
 
         // Envia a mensagem inicial do "Sistema"
-        const messagesRef = ref(rtdb, `chats/${chatKey}/messages`);
+        const messagesRef = ref(rtdb, `chats/${chatId}/messages`);
         const initialMessage = {
           sender: "system",
           text: `{img=${listing.imageUrls && listing.imageUrls.length > 0 ? listing.imageUrls[0] : 'N/A'}} | Title: ${listing.title} | Price: £${listing.price}\nProduto: ${listing.title} | SubTitle: ${listing.subtitle || 'N/A'}`,
@@ -123,12 +118,11 @@ const DetailsPage = () => {
         const newMessageRef = push(messagesRef);
         await rtdbSet(newMessageRef, initialMessage);
       } else {
-        // Se o chat já existir, utiliza o token já salvo
-        const chatData = snapshot.val();
-        chatToken = chatData.token;
+        // Se o chat já existir, utiliza o token salvo
+        token = snapshot.val().token;
       }
-      // Redireciona para a página do chat usando o token na URL
-      router.push(`/dashboard/messages/${chatToken}`);
+      // Redireciona usando o token na URL
+      router.push(`/dashboard/messages/${token}`);
     } catch (err) {
       console.error("Erro ao criar ou acessar o chat:", err);
       setError("Houve um erro ao iniciar o chat.");
@@ -159,7 +153,7 @@ const DetailsPage = () => {
         <h2 className="text-4xl text-gray-700 mt-4">£{listing.price}</h2>
       </div>
 
-      {/* Informações do vendedor e ação para iniciar chat */}
+      {/* Informações do vendedor e botão para enviar mensagem */}
       <div className="bg-white p-6 rounded-lg shadow-lg">
         <div className="flex items-center gap-4">
           <img

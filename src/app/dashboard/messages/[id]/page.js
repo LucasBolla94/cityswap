@@ -1,3 +1,4 @@
+// /src/app/dashboard/messages/[id]/page.js
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
@@ -6,18 +7,17 @@ import { ref, onValue, get as rtdbGet, set as rtdbSet, push, update } from 'fire
 import { useAuth } from '../../../../lib/auth';
 
 const ChatPage = () => {
-  const { id } = useParams(); // Aqui, "id" é o token do chat
+  const { id } = useParams(); // Aqui, "id" é o token seguro
   const { user: currentUser, loading: authLoading } = useAuth();
 
   const [chatData, setChatData] = useState(null);
+  const [chatKey, setChatKey] = useState(null);
   const [newMessage, setNewMessage] = useState('');
   const [authError, setAuthError] = useState('');
   const [localLoading, setLocalLoading] = useState(true);
-  const [chatKey, setChatKey] = useState(null);
 
   const messagesEndRef = useRef(null);
 
-  // Função para obter a foto do usuário (usa uma imagem padrão se não houver)
   const getUserPhoto = (senderId) => {
     if (currentUser && senderId === currentUser.uid) {
       return currentUser.photoURL ? currentUser.photoURL : '/img/chat/userchat.png';
@@ -25,7 +25,6 @@ const ChatPage = () => {
     return '/img/chat/userchat.png';
   };
 
-  // Renderiza o conteúdo da mensagem, detectando um possível placeholder de imagem
   const renderMessageContent = (message) => {
     const pattern = /\{img=([^}]+)\}/;
     const match = message.text.match(pattern);
@@ -59,9 +58,9 @@ const ChatPage = () => {
       return;
     }
 
-    // Busca o chat pelo token recebido na URL
+    // Busca o chat cujo token seja igual ao id recebido na URL
     const chatsRef = ref(rtdb, 'chats');
-    let unsubscribeChats = onValue(chatsRef, (snapshot) => {
+    const unsubscribeChats = onValue(chatsRef, (snapshot) => {
       const data = snapshot.val();
       let foundChatKey = null;
       if (data) {
@@ -77,14 +76,15 @@ const ChatPage = () => {
         return;
       }
       setChatKey(foundChatKey);
-      // Agora, configura o listener para os dados do chat encontrado
       const chatRef = ref(rtdb, `chats/${foundChatKey}`);
-      let unsubscribeChat = onValue(chatRef, (snapshot) => {
+      const unsubscribeChat = onValue(chatRef, (snapshot) => {
         const chatData = snapshot.val();
         setChatData(chatData);
         setLocalLoading(false);
       });
-      return () => unsubscribeChat();
+      return () => {
+        unsubscribeChat();
+      };
     }, (error) => {
       console.error("Erro ao buscar chat:", error);
       setAuthError("Erro ao acessar o chat.");
@@ -96,17 +96,15 @@ const ChatPage = () => {
     };
   }, [id, authLoading, currentUser]);
 
-  // Marca as mensagens como lidas para o destinatário
+  // Marca as mensagens não enviadas pelo usuário como lidas
   useEffect(() => {
-    if (!currentUser) return;
-    if (chatData && chatData.messages) {
-      Object.entries(chatData.messages).forEach(([key, message]) => {
-        if (message.sender !== currentUser.uid && !message.read) {
-          const msgRef = ref(rtdb, `chats/${chatKey}/messages/${key}`);
-          update(msgRef, { read: true });
-        }
-      });
-    }
+    if (!currentUser || !chatKey || !chatData || !chatData.messages) return;
+    Object.entries(chatData.messages).forEach(([key, message]) => {
+      if (message.sender !== currentUser.uid && !message.read) {
+        const msgRef = ref(rtdb, `chats/${chatKey}/messages/${key}`);
+        update(msgRef, { read: true });
+      }
+    });
   }, [chatData, currentUser, chatKey]);
 
   useEffect(() => {
@@ -114,7 +112,7 @@ const ChatPage = () => {
   }, [chatData]);
 
   const handleSendMessage = async () => {
-    if (newMessage.trim() === '') return;
+    if (newMessage.trim() === '' || !chatKey) return;
     try {
       const messagesRef = ref(rtdb, `chats/${chatKey}/messages`);
       const newMessageRef = push(messagesRef);
@@ -157,7 +155,9 @@ const ChatPage = () => {
             .map(([key, message]) => (
               <div
                 key={key}
-                className={`flex items-start gap-2 ${message.sender === currentUser.uid ? 'justify-end' : 'justify-start'}`}
+                className={`flex items-start gap-2 ${
+                  message.sender === currentUser.uid ? 'justify-end' : 'justify-start'
+                }`}
               >
                 {message.sender !== currentUser.uid && (
                   <img
@@ -167,7 +167,9 @@ const ChatPage = () => {
                   />
                 )}
                 <div
-                  className={`p-3 rounded-lg shadow break-words ${message.sender === currentUser.uid ? 'bg-blue-100' : 'bg-gray-200'} max-w-[80%]`}
+                  className={`p-3 rounded-lg shadow break-words ${
+                    message.sender === currentUser.uid ? 'bg-blue-100' : 'bg-gray-200'
+                  } max-w-[80%]`}
                 >
                   {renderMessageContent(message)}
                   <span className="block mt-1 text-xs text-gray-500">
